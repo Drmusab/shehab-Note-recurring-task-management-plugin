@@ -3,14 +3,14 @@ import { mount, unmount } from "svelte";
 import Dashboard from "./components/Dashboard.svelte";
 import { TaskStorage } from "./core/storage/TaskStorage";
 import { Scheduler } from "./core/engine/Scheduler";
-import { NotificationService } from "./services/NotificationService";
+import { EventService } from "./services/EventService";
 import { DOCK_TYPE } from "./utils/constants";
 import "./index.scss";
 
 export default class RecurringTasksPlugin extends Plugin {
   private storage!: TaskStorage;
   private scheduler!: Scheduler;
-  private notificationService!: NotificationService;
+  private eventService!: EventService;
   private dashboardComponent: ReturnType<typeof mount> | null = null;
   private dockEl!: HTMLElement;
 
@@ -21,16 +21,22 @@ export default class RecurringTasksPlugin extends Plugin {
     this.storage = new TaskStorage(this);
     await this.storage.init();
 
-    // Initialize notification service
-    this.notificationService = new NotificationService(this);
-    await this.notificationService.init();
+    // Initialize event service
+    this.eventService = new EventService(this);
+    await this.eventService.init();
 
     // Initialize scheduler
     this.scheduler = new Scheduler(this.storage);
-    this.scheduler.start(async (task) => {
-      console.log(`Task due: ${task.name}`);
-      await this.notificationService.notifyTask(task);
-    });
+    this.scheduler.start(
+      async (task) => {
+        console.log(`Task due: ${task.name}`);
+        await this.eventService.emitTaskEvent("task.due", task);
+      },
+      async (task) => {
+        console.log(`Task missed: ${task.name}`);
+        await this.eventService.emitTaskEvent("task.missed", task);
+      }
+    );
 
     // Add dock panel
     this.addDock({
@@ -59,6 +65,7 @@ export default class RecurringTasksPlugin extends Plugin {
     
     // Stop scheduler
     this.scheduler.stop();
+    this.eventService.stopQueueWorker();
     
     // Destroy dashboard
     this.destroyDashboard();
@@ -71,7 +78,7 @@ export default class RecurringTasksPlugin extends Plugin {
         props: {
           storage: this.storage,
           scheduler: this.scheduler,
-          notificationService: this.notificationService,
+          eventService: this.eventService,
         },
       });
     }

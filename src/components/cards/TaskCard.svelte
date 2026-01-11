@@ -6,10 +6,11 @@
     task: Task;
     onDone: (task: Task) => void;
     onDelay: (task: Task) => void;
+    onSkip: (task: Task) => void;
     onEdit?: (task: Task) => void;
   }
 
-  let { task, onDone, onDelay, onEdit }: Props = $props();
+  let { task, onDone, onDelay, onSkip, onEdit }: Props = $props();
 
   const dueDate = $derived(new Date(task.dueAt));
   const overdue = $derived(isOverdue(dueDate));
@@ -30,6 +31,10 @@
     if (onEdit) {
       onEdit(task);
     }
+  }
+
+  function handleSkip() {
+    onSkip(task);
   }
 </script>
 
@@ -62,6 +67,9 @@
   <div class="task-card__actions">
     <button class="task-card__action task-card__action--delay" onclick={handleDelay}>
       🕒 Delay to Tomorrow
+    </button>
+    <button class="task-card__action task-card__action--skip" onclick={handleSkip}>
+      ⏭️ Skip
     </button>
     <button class="task-card__action task-card__action--done" onclick={handleDone}>
       ✅ Done
@@ -160,6 +168,15 @@
   }
 
   .task-card__action--delay:hover {
+    background: var(--b3-theme-surface-light);
+  }
+
+  .task-card__action--skip {
+    background: var(--b3-theme-surface-lighter);
+    color: var(--b3-theme-on-surface);
+  }
+
+  .task-card__action--skip:hover {
     background: var(--b3-theme-surface-light);
   }
 

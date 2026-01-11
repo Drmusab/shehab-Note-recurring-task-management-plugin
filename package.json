@@ -18,6 +18,7 @@
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
+    "test": "vitest run",
     "make-link": "node --no-warnings ./scripts/make_dev_link.js"
   },
   "devDependencies": {
@@ -30,6 +31,7 @@
     "typescript": "^5.5.3",
     "vite": "^5.3.3",
     "vite-plugin-static-copy": "^1.0.6",
-    "vite-plugin-zip-pack": "^1.2.4"
+    "vite-plugin-zip-pack": "^1.2.4",
+    "vitest": "^1.6.0"
   }
 }

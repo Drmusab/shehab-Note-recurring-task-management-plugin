@@ -1,60 +1,20 @@
+import type { Frequency } from "@/core/models/Frequency";
 import type { Task } from "@/core/models/Task";
 
-/**
- * Notification message sent to external channels
- */
-export interface NotificationMessage {
-  taskName: string;
-  dueAt: string;
-  payload: {
-    note?: string;
-    media?: string;
-    link?: string;
-  };
-}
-
-/**
- * Interface for notification senders
- */
-export interface NotificationSender {
-  /**
-   * Send a notification
-   * @param message The notification message
-   * @returns Promise resolving to success status
-   */
-  send(message: NotificationMessage): Promise<boolean>;
-  
-  /**
-   * Check if the sender is configured and ready
-   */
-  isConfigured(): boolean;
-}
+export type TaskEventType =
+  | "task.due"
+  | "task.completed"
+  | "task.snoozed"
+  | "task.skipped"
+  | "task.missed"
+  | "test.ping";
 
 /**
  * Configuration for n8n webhook
  */
 export interface N8nConfig {
   webhookUrl: string;
-  enabled: boolean;
-}
-
-/**
- * Configuration for Telegram
- */
-export interface TelegramConfig {
-  botToken: string;
-  chatId: string;
-  enabled: boolean;
-}
-
-/**
- * Configuration for Gmail
- */
-export interface GmailConfig {
-  clientId: string;
-  clientSecret: string;
-  refreshToken: string;
-  recipientEmail: string;
+  sharedSecret: string;
   enabled: boolean;
 }
 
@@ -63,17 +23,47 @@ export interface GmailConfig {
  */
 export interface NotificationConfig {
   n8n: N8nConfig;
-  telegram: TelegramConfig;
-  gmail: GmailConfig;
 }
 
-/**
- * Creates a notification message from a task
- */
-export function createNotificationMessage(task: Task): NotificationMessage {
+export interface EventDelivery {
+  dedupeKey: string;
+  attempt: number;
+}
+
+export interface TaskSnapshot {
+  id: string;
+  name: string;
+  dueAt: string;
+  frequency: Frequency;
+  linkedBlockId?: string;
+  priority?: "low" | "normal" | "high";
+  tags?: string[];
+}
+
+export interface TaskEventPayload {
+  event: TaskEventType;
+  source: string;
+  version: string;
+  occurredAt: string;
+  task?: TaskSnapshot;
+  delivery: EventDelivery;
+}
+
+export interface QueueItem {
+  id: string;
+  payload: TaskEventPayload;
+  attempt: number;
+  nextAttemptAt: string;
+}
+
+export function createTaskSnapshot(task: Task): TaskSnapshot {
   return {
-    taskName: task.name,
+    id: task.id,
+    name: task.name,
     dueAt: task.dueAt,
-    payload: task.alertPayload,
+    frequency: task.frequency,
+    linkedBlockId: task.linkedBlockId,
+    priority: task.priority,
+    tags: task.tags,
   };
 }

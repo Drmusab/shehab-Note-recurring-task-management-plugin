@@ -12,7 +12,7 @@ export class RecurrenceEngine {
    * @returns Next occurrence date
    */
   calculateNext(currentDue: Date, frequency: Frequency): Date {
-    const { type, interval, time, weekdays } = frequency;
+    const { type, interval, time } = frequency;
     let nextDate: Date;
 
     switch (type) {
@@ -20,10 +20,18 @@ export class RecurrenceEngine {
         nextDate = this.calculateNextDaily(currentDue, interval);
         break;
       case "weekly":
-        nextDate = this.calculateNextWeekly(currentDue, interval, weekdays);
+        nextDate = this.calculateNextWeekly(
+          currentDue,
+          interval,
+          frequency.weekdays
+        );
         break;
       case "monthly":
-        nextDate = this.calculateNextMonthly(currentDue, interval);
+        nextDate = this.calculateNextMonthly(
+          currentDue,
+          interval,
+          frequency.dayOfMonth
+        );
         break;
       default:
         throw new Error(`Unknown frequency type: ${type}`);
@@ -91,8 +99,20 @@ export class RecurrenceEngine {
   /**
    * Calculate next monthly occurrence
    */
-  private calculateNextMonthly(currentDue: Date, interval: number): Date {
-    return addMonths(currentDue, interval);
+  private calculateNextMonthly(
+    currentDue: Date,
+    interval: number,
+    dayOfMonth?: number
+  ): Date {
+    const nextBase = addMonths(currentDue, interval);
+    const targetDay = dayOfMonth ?? currentDue.getDate();
+    const year = nextBase.getFullYear();
+    const month = nextBase.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const day = Math.min(targetDay, daysInMonth);
+    const nextDate = new Date(nextBase);
+    nextDate.setDate(day);
+    return nextDate;
   }
 
   /**

@@ -6,19 +6,35 @@ export type FrequencyType = "daily" | "weekly" | "monthly";
 /**
  * Frequency/Recurrence rule definition
  */
-export interface Frequency {
-  /** Type of recurrence */
-  type: FrequencyType;
-  
-  /** Interval multiplier (e.g., every 2 weeks) */
-  interval: number;
-  
-  /** Optional fixed time in HH:mm format (e.g., "09:00") */
-  time?: string;
-  
-  /** For weekly rules: days of week (0-6, Sunday-Saturday) */
-  weekdays?: number[];
-}
+export type Frequency =
+  | {
+      /** Type of recurrence */
+      type: "daily";
+      /** Interval multiplier (e.g., every 2 days) */
+      interval: number;
+      /** Optional fixed time in HH:mm format (e.g., "09:00") */
+      time?: string;
+    }
+  | {
+      /** Type of recurrence */
+      type: "weekly";
+      /** Interval multiplier (e.g., every 2 weeks) */
+      interval: number;
+      /** For weekly rules: days of week (0-6, Sunday-Saturday) */
+      weekdays: number[];
+      /** Optional fixed time in HH:mm format (e.g., "09:00") */
+      time?: string;
+    }
+  | {
+      /** Type of recurrence */
+      type: "monthly";
+      /** Interval multiplier (e.g., every 2 months) */
+      interval: number;
+      /** Day of month (1-31) */
+      dayOfMonth: number;
+      /** Optional fixed time in HH:mm format (e.g., "09:00") */
+      time?: string;
+    };
 
 /**
  * Creates a default daily frequency
@@ -43,8 +59,16 @@ export function isValidFrequency(frequency: Frequency): boolean {
     return false;
   }
   
-  if (frequency.type === "weekly" && frequency.weekdays) {
-    return frequency.weekdays.every(day => day >= 0 && day <= 6);
+  if (frequency.type === "weekly") {
+    return (
+      Array.isArray(frequency.weekdays) &&
+      frequency.weekdays.length > 0 &&
+      frequency.weekdays.every((day) => day >= 0 && day <= 6)
+    );
+  }
+
+  if (frequency.type === "monthly") {
+    return frequency.dayOfMonth >= 1 && frequency.dayOfMonth <= 31;
   }
   
   return true;

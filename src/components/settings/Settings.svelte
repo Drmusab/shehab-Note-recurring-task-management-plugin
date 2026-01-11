@@ -1,15 +1,15 @@
 <script lang="ts">
   import type { NotificationConfig } from "@/services/types";
-  import type { NotificationService } from "@/services/NotificationService";
+  import type { EventService } from "@/services/EventService";
   import { DEFAULT_NOTIFICATION_CONFIG } from "@/utils/constants";
   import { toast } from "@/utils/notifications";
 
   interface Props {
-    notificationService: NotificationService;
+    eventService: EventService;
     onClose?: () => void;
   }
 
-  let { notificationService, onClose }: Props = $props();
+  let { eventService, onClose }: Props = $props();
 
   let config = $state<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
   let testingChannel: string | null = $state(null);
@@ -17,12 +17,12 @@
 
   // Initialize config from service
   $effect(() => {
-    config = notificationService.getConfig();
+    config = eventService.getConfig();
   });
 
   async function handleSave() {
     try {
-      await notificationService.saveConfig(config);
+      await eventService.saveConfig(config);
       toast.success("Settings saved successfully!");
       if (onClose) onClose();
     } catch (err) {
@@ -30,18 +30,18 @@
     }
   }
 
-  async function testChannel(channel: "n8n" | "telegram" | "gmail") {
-    testingChannel = channel;
-    testResults[channel] = { success: false, message: "Testing..." };
-    
+  async function testConnection() {
+    testingChannel = "n8n";
+    testResults.n8n = { success: false, message: "Testing..." };
+
     try {
-      const success = await notificationService.testChannel(channel);
-      testResults[channel] = {
+      const success = await eventService.testConnection();
+      testResults.n8n = {
         success,
         message: success ? "Test successful!" : "Test failed. Check configuration.",
       };
     } catch (err) {
-      testResults[channel] = {
+      testResults.n8n = {
         success: false,
         message: "Error: " + err,
       };
@@ -53,7 +53,7 @@
 
 <div class="settings">
   <div class="settings__header">
-    <h2 class="settings__title">Notification Settings</h2>
+    <h2 class="settings__title">n8n Integration</h2>
     {#if onClose}
       <button class="settings__close-btn" onclick={onClose}>✕</button>
     {/if}
@@ -82,136 +82,28 @@
         />
       </div>
 
+      <div class="settings__field">
+        <label class="settings__label" for="n8n-secret">Shared Secret</label>
+        <input
+          id="n8n-secret"
+          class="settings__input"
+          type="password"
+          bind:value={config.n8n.sharedSecret}
+          placeholder="Optional shared secret"
+          disabled={!config.n8n.enabled}
+        />
+      </div>
+
       <button
         class="settings__test-btn"
-        onclick={() => testChannel("n8n")}
+        onclick={testConnection}
         disabled={!config.n8n.enabled || testingChannel === "n8n"}
       >
-        {testingChannel === "n8n" ? "Testing..." : "Test n8n"}
+        {testingChannel === "n8n" ? "Testing..." : "Test Connection"}
       </button>
       {#if testResults.n8n}
         <div class="settings__test-result {testResults.n8n.success ? 'success' : 'error'}">
           {testResults.n8n.message}
-        </div>
-      {/if}
-    </section>
-
-    <!-- Telegram Settings -->
-    <section class="settings__section">
-      <div class="settings__section-header">
-        <h3 class="settings__section-title">Telegram</h3>
-        <label class="settings__toggle">
-          <input type="checkbox" bind:checked={config.telegram.enabled} />
-          <span>Enabled</span>
-        </label>
-      </div>
-
-      <div class="settings__field">
-        <label class="settings__label" for="telegram-token">Bot Token</label>
-        <input
-          id="telegram-token"
-          class="settings__input"
-          type="password"
-          bind:value={config.telegram.botToken}
-          placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-          disabled={!config.telegram.enabled}
-        />
-      </div>
-
-      <div class="settings__field">
-        <label class="settings__label" for="telegram-chat">Chat ID</label>
-        <input
-          id="telegram-chat"
-          class="settings__input"
-          type="text"
-          bind:value={config.telegram.chatId}
-          placeholder="123456789"
-          disabled={!config.telegram.enabled}
-        />
-      </div>
-
-      <button
-        class="settings__test-btn"
-        onclick={() => testChannel("telegram")}
-        disabled={!config.telegram.enabled || testingChannel === "telegram"}
-      >
-        {testingChannel === "telegram" ? "Testing..." : "Test Telegram"}
-      </button>
-      {#if testResults.telegram}
-        <div class="settings__test-result {testResults.telegram.success ? 'success' : 'error'}">
-          {testResults.telegram.message}
-        </div>
-      {/if}
-    </section>
-
-    <!-- Gmail Settings -->
-    <section class="settings__section">
-      <div class="settings__section-header">
-        <h3 class="settings__section-title">Gmail</h3>
-        <label class="settings__toggle">
-          <input type="checkbox" bind:checked={config.gmail.enabled} />
-          <span>Enabled</span>
-        </label>
-      </div>
-
-      <div class="settings__field">
-        <label class="settings__label" for="gmail-client-id">Client ID</label>
-        <input
-          id="gmail-client-id"
-          class="settings__input"
-          type="text"
-          bind:value={config.gmail.clientId}
-          placeholder="your-client-id.apps.googleusercontent.com"
-          disabled={!config.gmail.enabled}
-        />
-      </div>
-
-      <div class="settings__field">
-        <label class="settings__label" for="gmail-client-secret">Client Secret</label>
-        <input
-          id="gmail-client-secret"
-          class="settings__input"
-          type="password"
-          bind:value={config.gmail.clientSecret}
-          placeholder="Your client secret"
-          disabled={!config.gmail.enabled}
-        />
-      </div>
-
-      <div class="settings__field">
-        <label class="settings__label" for="gmail-refresh-token">Refresh Token</label>
-        <input
-          id="gmail-refresh-token"
-          class="settings__input"
-          type="password"
-          bind:value={config.gmail.refreshToken}
-          placeholder="Your refresh token"
-          disabled={!config.gmail.enabled}
-        />
-      </div>
-
-      <div class="settings__field">
-        <label class="settings__label" for="gmail-recipient">Recipient Email</label>
-        <input
-          id="gmail-recipient"
-          class="settings__input"
-          type="email"
-          bind:value={config.gmail.recipientEmail}
-          placeholder="recipient@example.com"
-          disabled={!config.gmail.enabled}
-        />
-      </div>
-
-      <button
-        class="settings__test-btn"
-        onclick={() => testChannel("gmail")}
-        disabled={!config.gmail.enabled || testingChannel === "gmail"}
-      >
-        {testingChannel === "gmail" ? "Testing..." : "Test Gmail"}
-      </button>
-      {#if testResults.gmail}
-        <div class="settings__test-result {testResults.gmail.success ? 'success' : 'error'}">
-          {testResults.gmail.message}
         </div>
       {/if}
     </section>

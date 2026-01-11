@@ -101,11 +101,23 @@
                     </div>
                     <div class="timeline-task__content">
                       <div class="timeline-task__name">{task.name}</div>
-                      {#if task.alertPayload.note}
-                        <div class="timeline-task__note">
-                          {task.alertPayload.note}
-                        </div>
-                      {/if}
+                      <div class="timeline-task__meta">
+                        {#if task.linkedBlockId}
+                          <span class="timeline-task__meta-item">
+                            🔗 {task.linkedBlockId}
+                          </span>
+                        {/if}
+                        {#if task.priority}
+                          <span class="timeline-task__meta-item">
+                            ⚡ {task.priority}
+                          </span>
+                        {/if}
+                        {#if task.tags?.length}
+                          <span class="timeline-task__meta-item">
+                            🏷️ {task.tags.join(", ")}
+                          </span>
+                        {/if}
+                      </div>
                     </div>
                   </div>
                 {/each}
@@ -240,11 +252,17 @@
     margin-bottom: 4px;
   }
 
-  .timeline-task__note {
-    font-size: 13px;
+  .timeline-task__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12px;
     color: var(--b3-theme-on-surface-light);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+
+  .timeline-task__meta-item {
+    background: var(--b3-theme-surface-lighter);
+    border-radius: 10px;
+    padding: 2px 8px;
   }
 </style>

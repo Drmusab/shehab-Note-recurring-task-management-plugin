@@ -2,7 +2,7 @@
   import type { Task } from "@/core/models/Task";
   import type { TaskStorage } from "@/core/storage/TaskStorage";
   import type { Scheduler } from "@/core/engine/Scheduler";
-  import type { NotificationService } from "@/services/NotificationService";
+  import type { EventService } from "@/services/EventService";
   import { toast } from "@/utils/notifications";
   import TodayTab from "./tabs/TodayTab.svelte";
   import AllTasksTab from "./tabs/AllTasksTab.svelte";
@@ -13,10 +13,10 @@
   interface Props {
     storage: TaskStorage;
     scheduler: Scheduler;
-    notificationService: NotificationService;
+    eventService: EventService;
   }
 
-  let { storage, scheduler, notificationService }: Props = $props();
+  let { storage, scheduler, eventService }: Props = $props();
 
   let activeTab = $state<"today" | "all" | "timeline">("today");
   let showTaskForm = $state(false);
@@ -36,6 +36,7 @@
 
   async function handleTaskDone(task: Task) {
     try {
+      await eventService.emitTaskEvent("task.completed", task);
       await scheduler.markTaskDone(task.id);
       refreshTasks();
       toast.success(`Task "${task.name}" completed and rescheduled`);
@@ -46,6 +47,7 @@
 
   async function handleTaskDelay(task: Task) {
     try {
+      await eventService.emitTaskEvent("task.snoozed", task);
       await scheduler.delayTaskToTomorrow(task.id);
       refreshTasks();
       toast.info(`Task "${task.name}" delayed to tomorrow`);
@@ -121,7 +123,7 @@
 
   {#if showSettings}
     <div class="dashboard__overlay">
-      <Settings {notificationService} onClose={handleCloseSettings} />
+      <Settings {eventService} onClose={handleCloseSettings} />
     </div>
   {:else if showTaskForm}
     <div class="dashboard__overlay">
@@ -159,6 +161,7 @@
           tasks={todayTasks}
           onDone={handleTaskDone}
           onDelay={handleTaskDelay}
+          onSkip={handleTaskSkip}
           onEdit={handleEditTask}
         />
       {:else if activeTab === "all"}
@@ -285,3 +288,13 @@
     z-index: 1000;
   }
 </style>
+  async function handleTaskSkip(task: Task) {
+    try {
+      await eventService.emitTaskEvent("task.skipped", task);
+      await scheduler.skipTaskOccurrence(task.id);
+      refreshTasks();
+      toast.info(`Task "${task.name}" skipped to next occurrence`);
+    } catch (err) {
+      toast.error("Failed to skip task: " + err);
+    }
+  }

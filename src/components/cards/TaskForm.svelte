@@ -22,10 +22,11 @@
   let interval = $state(1);
   let time = $state("09:00");
   let weekdays = $state<number[]>([]);
+  let dayOfMonth = $state(1);
   let enabled = $state(true);
-  let note = $state("");
-  let media = $state("");
-  let link = $state("");
+  let linkedBlockId = $state("");
+  let priority = $state<"low" | "normal" | "high">("normal");
+  let tags = $state("");
 
   // Initialize form from task
   $effect(() => {
@@ -37,11 +38,15 @@
       frequencyType = task.frequency.type || "daily";
       interval = task.frequency.interval || 1;
       time = task.frequency.time || "09:00";
-      weekdays = task.frequency.weekdays || [];
+      weekdays = task.frequency.type === "weekly" ? task.frequency.weekdays : [];
+      dayOfMonth =
+        task.frequency.type === "monthly"
+          ? task.frequency.dayOfMonth
+          : new Date(task.dueAt).getDate();
       enabled = task.enabled ?? true;
-      note = task.alertPayload.note || "";
-      media = task.alertPayload.media || "";
-      link = task.alertPayload.link || "";
+      linkedBlockId = task.linkedBlockId || "";
+      priority = task.priority || "normal";
+      tags = task.tags ? task.tags.join(", ") : "";
     } else {
       // Reset for new task
       name = "";
@@ -50,10 +55,11 @@
       interval = 1;
       time = "09:00";
       weekdays = [];
+      dayOfMonth = new Date().getDate();
       enabled = true;
-      note = "";
-      media = "";
-      link = "";
+      linkedBlockId = "";
+      priority = "normal";
+      tags = "";
     }
   });
 
@@ -63,12 +69,38 @@
       return;
     }
 
-    const frequency: Frequency = {
-      type: frequencyType,
-      interval,
-      time,
-      weekdays: frequencyType === "weekly" ? weekdays : undefined,
-    };
+    if (frequencyType === "weekly" && weekdays.length === 0) {
+      toast.warning("Select at least one weekday");
+      return;
+    }
+
+    if (frequencyType === "monthly" && (dayOfMonth < 1 || dayOfMonth > 31)) {
+      toast.warning("Day of month must be between 1 and 31");
+      return;
+    }
+
+    let frequency: Frequency;
+    if (frequencyType === "weekly") {
+      frequency = {
+        type: "weekly",
+        interval,
+        time,
+        weekdays,
+      };
+    } else if (frequencyType === "monthly") {
+      frequency = {
+        type: "monthly",
+        interval,
+        time,
+        dayOfMonth,
+      };
+    } else {
+      frequency = {
+        type: "daily",
+        interval,
+        time,
+      };
+    }
 
     const taskData: Task = task
       ? {
@@ -77,22 +109,24 @@
           dueAt: new Date(dueAt).toISOString(),
           frequency,
           enabled,
-          alertPayload: {
-            note: note.trim() || undefined,
-            media: media.trim() || undefined,
-            link: link.trim() || undefined,
-          },
+          linkedBlockId: linkedBlockId.trim() || undefined,
+          priority,
+          tags: tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
           updatedAt: new Date().toISOString(),
         }
       : createTask(name.trim(), frequency, new Date(dueAt));
 
     if (!task) {
       taskData.enabled = enabled;
-      taskData.alertPayload = {
-        note: note.trim() || undefined,
-        media: media.trim() || undefined,
-        link: link.trim() || undefined,
-      };
+      taskData.linkedBlockId = linkedBlockId.trim() || undefined;
+      taskData.priority = priority;
+      taskData.tags = tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
     }
 
     onSave(taskData);
@@ -193,6 +227,20 @@
     </div>
   {/if}
 
+  {#if frequencyType === "monthly"}
+    <div class="task-form__field">
+      <label class="task-form__label" for="day-of-month">Day of Month</label>
+      <input
+        id="day-of-month"
+        class="task-form__input"
+        type="number"
+        min="1"
+        max="31"
+        bind:value={dayOfMonth}
+      />
+    </div>
+  {/if}
+
   <div class="task-form__field">
     <label class="task-form__checkbox">
       <input type="checkbox" bind:checked={enabled} />
@@ -201,38 +249,36 @@
   </div>
 
   <div class="task-form__section">
-    <h3 class="task-form__section-title">Alert Payload</h3>
+    <h3 class="task-form__section-title">Routing Metadata</h3>
 
     <div class="task-form__field">
-      <label class="task-form__label" for="task-note">Note</label>
-      <textarea
-        id="task-note"
-        class="task-form__textarea"
-        bind:value={note}
-        placeholder="Enter note or block ID"
-        rows="3"
-      ></textarea>
-    </div>
-
-    <div class="task-form__field">
-      <label class="task-form__label" for="task-media">Media URL</label>
+      <label class="task-form__label" for="task-block">Linked Block ID</label>
       <input
-        id="task-media"
+        id="task-block"
         class="task-form__input"
-        type="url"
-        bind:value={media}
-        placeholder="https://example.com/media.mp4"
+        type="text"
+        bind:value={linkedBlockId}
+        placeholder="20260112101010-abcdef"
       />
     </div>
 
     <div class="task-form__field">
-      <label class="task-form__label" for="task-link">Link</label>
+      <label class="task-form__label" for="task-priority">Priority</label>
+      <select id="task-priority" class="task-form__select" bind:value={priority}>
+        <option value="low">Low</option>
+        <option value="normal">Normal</option>
+        <option value="high">High</option>
+      </select>
+    </div>
+
+    <div class="task-form__field">
+      <label class="task-form__label" for="task-tags">Tags</label>
       <input
-        id="task-link"
+        id="task-tags"
         class="task-form__input"
-        type="url"
-        bind:value={link}
-        placeholder="https://example.com"
+        type="text"
+        bind:value={tags}
+        placeholder="health, habit"
       />
     </div>
   </div>

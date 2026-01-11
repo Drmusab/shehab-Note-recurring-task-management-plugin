@@ -28,7 +28,17 @@
   function getFrequencyLabel(task: Task): string {
     const { type, interval } = task.frequency;
     const unit = type === "daily" ? "day" : type === "weekly" ? "week" : "month";
-    return interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
+    const base = interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
+    if (type === "weekly") {
+      const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      return `${base} on ${task.frequency.weekdays
+        .map((day) => weekdayNames[day] ?? day)
+        .join(", ")}`;
+    }
+    if (type === "monthly") {
+      return `${base} on day ${task.frequency.dayOfMonth}`;
+    }
+    return base;
   }
 </script>
 

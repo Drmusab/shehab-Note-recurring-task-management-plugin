@@ -1,20 +1,6 @@
 import type { Frequency } from "./Frequency";
 
 /**
- * Alert payload types
- */
-export interface AlertPayload {
-  /** Plain text or Shehab-Note Block ID */
-  note?: string;
-  
-  /** URL to audio or video media */
-  media?: string;
-  
-  /** External reference link */
-  link?: string;
-}
-
-/**
  * Task entity representing a recurring task
  */
 export interface Task {
@@ -24,11 +10,8 @@ export interface Task {
   /** Task title/name */
   name: string;
   
-  /** Completion state (checked/unchecked) */
-  status: boolean;
-  
   /** Timestamp of last completion (ISO string) */
-  lastCompletedAt: string | null;
+  lastCompletedAt?: string;
   
   /** Current due date & time (ISO string) */
   dueAt: string;
@@ -36,11 +19,17 @@ export interface Task {
   /** Recurrence rule definition */
   frequency: Frequency;
   
-  /** Data sent to notification channels */
-  alertPayload: AlertPayload;
-  
   /** Whether task is active */
   enabled: boolean;
+
+  /** Linked block ID in Shehab-Note */
+  linkedBlockId?: string;
+
+  /** Priority for routing */
+  priority?: "low" | "normal" | "high";
+
+  /** Tags for routing */
+  tags?: string[];
   
   /** Creation timestamp (ISO string) */
   createdAt: string;
@@ -63,12 +52,11 @@ export function createTask(
   return {
     id: generateTaskId(),
     name,
-    status: false,
-    lastCompletedAt: null,
+    lastCompletedAt: undefined,
     dueAt: dueDate.toISOString(),
     frequency,
-    alertPayload: {},
     enabled: true,
+    priority: "normal",
     createdAt: now,
     updatedAt: now,
   };
@@ -89,7 +77,6 @@ export function isTask(obj: any): obj is Task {
     obj &&
     typeof obj.id === "string" &&
     typeof obj.name === "string" &&
-    typeof obj.status === "boolean" &&
     typeof obj.dueAt === "string" &&
     typeof obj.enabled === "boolean" &&
     obj.frequency !== undefined
