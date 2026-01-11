@@ -25,10 +25,10 @@ export class Scheduler {
     this.onTaskDue = onTaskDue;
     this.checkDueTasks(); // Check immediately
     
-    // @ts-ignore - setInterval returns number in browser
+    // Use type assertion for cross-platform compatibility
     this.intervalId = setInterval(() => {
       this.checkDueTasks();
-    }, SCHEDULER_INTERVAL_MS);
+    }, SCHEDULER_INTERVAL_MS) as unknown as number;
     
     console.log("Scheduler started");
   }

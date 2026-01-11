@@ -2,6 +2,7 @@
   import type { NotificationConfig } from "@/services/types";
   import type { NotificationService } from "@/services/NotificationService";
   import { DEFAULT_NOTIFICATION_CONFIG } from "@/utils/constants";
+  import { toast } from "@/utils/notifications";
 
   interface Props {
     notificationService: NotificationService;
@@ -22,10 +23,10 @@
   async function handleSave() {
     try {
       await notificationService.saveConfig(config);
-      alert("Settings saved successfully!");
+      toast.success("Settings saved successfully!");
       if (onClose) onClose();
     } catch (err) {
-      alert("Failed to save settings: " + err);
+      toast.error("Failed to save settings: " + err);
     }
   }
 

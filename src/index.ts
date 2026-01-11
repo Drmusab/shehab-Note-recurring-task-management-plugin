@@ -8,11 +8,11 @@ import { DOCK_TYPE } from "./utils/constants";
 import "./index.scss";
 
 export default class RecurringTasksPlugin extends Plugin {
-  private storage: TaskStorage;
-  private scheduler: Scheduler;
-  private notificationService: NotificationService;
-  private dashboardComponent: any;
-  private dockEl: HTMLElement;
+  private storage!: TaskStorage;
+  private scheduler!: Scheduler;
+  private notificationService!: NotificationService;
+  private dashboardComponent: ReturnType<typeof mount> | null = null;
+  private dockEl!: HTMLElement;
 
   async onload() {
     console.log("Loading Recurring Tasks Plugin");

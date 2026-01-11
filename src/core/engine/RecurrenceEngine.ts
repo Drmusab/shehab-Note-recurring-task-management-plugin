@@ -77,11 +77,12 @@ export class RecurrenceEngine {
 
     // If not found in current week, go to next interval period
     if (!found) {
+      // Move to first weekday in the next occurrence
       const firstWeekday = sortedWeekdays[0];
-      daysToAdd = 7 * interval - (currentDay - firstWeekday);
-      if (daysToAdd < 0) {
-        daysToAdd += 7;
-      }
+      // Calculate days to the first weekday of next interval
+      const daysToEndOfWeek = 7 - currentDay;
+      const weeksToSkip = interval - 1;
+      daysToAdd = daysToEndOfWeek + (weeksToSkip * 7) + firstWeekday;
     }
 
     return addDays(currentDue, daysToAdd);

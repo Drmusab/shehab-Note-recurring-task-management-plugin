@@ -11,6 +11,8 @@ import type {
 export class GmailSender implements NotificationSender {
   private config: GmailConfig;
   private accessToken: string | null = null;
+  private retryCount: number = 0;
+  private readonly MAX_RETRIES = 1;
 
   constructor(config: GmailConfig) {
     this.config = config;
@@ -48,18 +50,22 @@ export class GmailSender implements NotificationSender {
         console.error("Gmail API error:", error);
         
         // Try refreshing token and retry once
-        if (response.status === 401) {
+        if (response.status === 401 && this.retryCount < this.MAX_RETRIES) {
+          this.retryCount++;
           await this.refreshAccessToken();
           return this.send(message); // Retry once
         }
         
+        this.retryCount = 0;
         return false;
       }
 
       console.log("Gmail notification sent successfully");
+      this.retryCount = 0;
       return true;
     } catch (error) {
       console.error("Failed to send Gmail notification:", error);
+      this.retryCount = 0;
       return false;
     }
   }

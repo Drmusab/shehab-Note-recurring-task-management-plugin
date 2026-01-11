@@ -3,6 +3,7 @@
   import type { Frequency, FrequencyType } from "@/core/models/Frequency";
   import { createTask } from "@/core/models/Task";
   import { createDefaultFrequency } from "@/core/models/Frequency";
+  import { toast } from "@/utils/notifications";
 
   interface Props {
     task?: Task;
@@ -58,7 +59,7 @@
 
   function handleSave() {
     if (!name.trim()) {
-      alert("Task name is required");
+      toast.warning("Task name is required");
       return;
     }
 

@@ -3,6 +3,7 @@
   import type { TaskStorage } from "@/core/storage/TaskStorage";
   import type { Scheduler } from "@/core/engine/Scheduler";
   import type { NotificationService } from "@/services/NotificationService";
+  import { toast } from "@/utils/notifications";
   import TodayTab from "./tabs/TodayTab.svelte";
   import AllTasksTab from "./tabs/AllTasksTab.svelte";
   import TimelineTab from "./tabs/TimelineTab.svelte";
@@ -37,9 +38,9 @@
     try {
       await scheduler.markTaskDone(task.id);
       refreshTasks();
-      console.log(`Task "${task.name}" marked as done and rescheduled`);
+      toast.success(`Task "${task.name}" completed and rescheduled`);
     } catch (err) {
-      alert("Failed to mark task as done: " + err);
+      toast.error("Failed to mark task as done: " + err);
     }
   }
 
@@ -47,9 +48,9 @@
     try {
       await scheduler.delayTaskToTomorrow(task.id);
       refreshTasks();
-      console.log(`Task "${task.name}" delayed to tomorrow`);
+      toast.info(`Task "${task.name}" delayed to tomorrow`);
     } catch (err) {
-      alert("Failed to delay task: " + err);
+      toast.error("Failed to delay task: " + err);
     }
   }
 
@@ -59,9 +60,9 @@
       refreshTasks();
       showTaskForm = false;
       editingTask = undefined;
-      console.log(`Task "${task.name}" saved`);
+      toast.success(`Task "${task.name}" saved successfully`);
     } catch (err) {
-      alert("Failed to save task: " + err);
+      toast.error("Failed to save task: " + err);
     }
   }
 
@@ -69,9 +70,9 @@
     try {
       await storage.deleteTask(task.id);
       refreshTasks();
-      console.log(`Task "${task.name}" deleted`);
+      toast.success(`Task "${task.name}" deleted`);
     } catch (err) {
-      alert("Failed to delete task: " + err);
+      toast.error("Failed to delete task: " + err);
     }
   }
 
@@ -80,8 +81,9 @@
       task.enabled = !task.enabled;
       await storage.saveTask(task);
       refreshTasks();
+      toast.info(`Task ${task.enabled ? "enabled" : "disabled"}`);
     } catch (err) {
-      alert("Failed to update task: " + err);
+      toast.error("Failed to update task: " + err);
     }
   }
 
