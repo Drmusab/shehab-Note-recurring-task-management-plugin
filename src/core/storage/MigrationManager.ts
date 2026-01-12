@@ -4,9 +4,8 @@
 
 import type { Plugin } from "siyuan";
 import type { Task } from "@/core/models/Task";
+import { CURRENT_SCHEMA_VERSION } from "@/utils/constants";
 import * as logger from "@/utils/logger";
-
-const CURRENT_SCHEMA_VERSION = 3;
 
 export class MigrationManager {
   private plugin: Plugin;

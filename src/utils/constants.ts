@@ -17,6 +17,11 @@ export const DOCK_TYPE = "recurring-tasks-dock";
 export const TOPBAR_ICON_ID = "recurring-tasks-topbar";
 
 /**
+ * Schema version for data migrations
+ */
+export const CURRENT_SCHEMA_VERSION = 3;
+
+/**
  * Default n8n event configuration
  */
 export const DEFAULT_NOTIFICATION_CONFIG = {

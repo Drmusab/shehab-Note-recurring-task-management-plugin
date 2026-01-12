@@ -145,12 +145,14 @@ export default class RecurringTasksPlugin extends Plugin {
     window.addEventListener("recurring-task-create", this.handleCreateTaskEvent);
     window.addEventListener("recurring-task-settings", this.handleSettingsEvent);
     window.addEventListener("recurring-task-complete", this.handleCompleteTaskEvent);
+    window.addEventListener("task-snooze", this.handleSnoozeTaskEvent);
   }
 
   private removeEventListeners() {
     window.removeEventListener("recurring-task-create", this.handleCreateTaskEvent);
     window.removeEventListener("recurring-task-settings", this.handleSettingsEvent);
     window.removeEventListener("recurring-task-complete", this.handleCompleteTaskEvent);
+    window.removeEventListener("task-snooze", this.handleSnoozeTaskEvent);
   }
 
   private handleCreateTaskEvent = (event: Event) => {
@@ -191,6 +193,28 @@ export default class RecurringTasksPlugin extends Plugin {
       }
     } catch (err) {
       logger.error("Failed to complete task", err);
+    }
+  };
+
+  private handleSnoozeTaskEvent = async (event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { taskId, minutes } = customEvent.detail;
+    
+    try {
+      const task = this.storage.getTask(taskId);
+      if (task) {
+        await this.eventService.emitTaskEvent("task.snoozed", task, 0);
+        await this.scheduler.delayTask(taskId, minutes);
+        
+        // Update topbar badge
+        if (this.topbarMenu) {
+          this.topbarMenu.update();
+        }
+        
+        logger.info(`Task snoozed: ${task.name} for ${minutes} minutes`);
+      }
+    } catch (err) {
+      logger.error("Failed to snooze task", err);
     }
   };
 }

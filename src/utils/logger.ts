@@ -12,8 +12,19 @@ export interface LogEntry {
 const MAX_LOG_ENTRIES = 500;
 const logEntries: LogEntry[] = [];
 
-// Enable debug logging based on environment
-const DEBUG_ENABLED = typeof process !== "undefined" && process.env?.DEBUG === "true";
+// Enable debug logging based on environment or build flag
+// In browser environments, this will always be false unless explicitly set
+const DEBUG_ENABLED = (() => {
+  try {
+    // Check if we're in a Node.js environment
+    if (typeof process !== "undefined" && process.env) {
+      return process.env.DEBUG === "true";
+    }
+  } catch (err) {
+    // Ignore errors in browser environment
+  }
+  return false;
+})();
 
 /**
  * Add a log entry

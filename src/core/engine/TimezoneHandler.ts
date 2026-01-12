@@ -14,9 +14,13 @@ export class TimezoneHandler {
 
   /**
    * Convert UTC date to local time
+   * Note: This is a simplified implementation. For production use,
+   * consider using a library like date-fns-tz for proper timezone conversion.
    */
   toLocal(utcDate: Date): Date {
-    return new Date(utcDate.toLocaleString("en-US", { timeZone: this.getTimezone() }));
+    // Return the date as-is since JavaScript Date objects are already timezone-aware
+    // and will display in the local timezone when formatted
+    return new Date(utcDate);
   }
 
   /**

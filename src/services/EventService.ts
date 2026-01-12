@@ -317,25 +317,13 @@ export class EventService {
         return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
       }
       
-      // Fallback: simple hash (not cryptographically secure)
-      return this.simpleHash(payload + secret);
+      // If crypto API is not available, fail gracefully
+      console.warn("Web Crypto API not available - signature generation disabled");
+      return "";
     } catch (err) {
       console.error("Failed to generate signature:", err);
-      return this.simpleHash(payload + secret);
+      return "";
     }
-  }
-
-  /**
-   * Simple hash fallback (not cryptographically secure)
-   */
-  private simpleHash(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16);
   }
 
   private async sendPayload(

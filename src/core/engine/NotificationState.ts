@@ -194,6 +194,7 @@ export class NotificationState {
    */
   generateTaskKey(taskId: string, dueAt: string): string {
     // Use date and hour for deduplication (ignores minutes/seconds)
+    // Format: YYYY-MM-DDTHH (13 characters from ISO string)
     const dueDate = new Date(dueAt);
     const key = `${taskId}:${dueDate.toISOString().slice(0, 13)}`;
     return key;

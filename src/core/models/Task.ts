@@ -1,4 +1,5 @@
 import type { Frequency } from "./Frequency";
+import { MAX_RECENT_COMPLETIONS, CURRENT_SCHEMA_VERSION } from "@/utils/constants";
 
 /**
  * Task entity representing a recurring task
@@ -114,7 +115,7 @@ export function createTask(
     recentCompletions: [],
     snoozeCount: 0,
     maxSnoozes: 3,
-    version: 3,
+    version: CURRENT_SCHEMA_VERSION,
     createdAt: now,
     updatedAt: now,
   };
@@ -161,9 +162,8 @@ export function recordCompletion(task: Task): void {
   task.recentCompletions.push(now);
   
   // Keep only the most recent completions
-  const MAX_RECENT = 10;
-  if (task.recentCompletions.length > MAX_RECENT) {
-    task.recentCompletions = task.recentCompletions.slice(-MAX_RECENT);
+  if (task.recentCompletions.length > MAX_RECENT_COMPLETIONS) {
+    task.recentCompletions = task.recentCompletions.slice(-MAX_RECENT_COMPLETIONS);
   }
   
   // Reset snooze count
