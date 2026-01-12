@@ -300,11 +300,11 @@ export class Scheduler {
         
         for (const missedAt of missedOccurrences) {
           const taskKey = `${task.id}:${missedAt.toISOString()}`;
-          const hasNotified = this.notificationState
-            ? this.notificationState.hasNotified(taskKey)
-            : this.fallbackNotified.has(taskKey);
+          const hasMissed = this.notificationState
+            ? this.notificationState.hasMissed(taskKey)
+            : this.fallbackMissed.has(taskKey);
 
-          if (!hasNotified && this.onTaskMissed) {
+          if (!hasMissed && this.onTaskMissed) {
             this.onTaskMissed(task);
             
             if (this.notificationState) {

@@ -20,6 +20,7 @@ export class TaskStorage {
   private plugin: Plugin;
   private tasks: Map<string, Task>;
   private blockIndex: Map<string, string> = new Map(); // blockId -> taskId
+  private taskBlockIndex: Map<string, string> = new Map(); // taskId -> blockId
 
   constructor(plugin: Plugin) {
     this.plugin = plugin;
@@ -48,9 +49,11 @@ export class TaskStorage {
    */
   private rebuildBlockIndex(): void {
     this.blockIndex.clear();
+    this.taskBlockIndex.clear();
     for (const task of this.tasks.values()) {
       if (task.linkedBlockId) {
         this.blockIndex.set(task.linkedBlockId, task.id);
+        this.taskBlockIndex.set(task.id, task.linkedBlockId);
       }
     }
     console.log(`Rebuilt block index with ${this.blockIndex.size} entries`);
@@ -96,17 +99,16 @@ export class TaskStorage {
    * Add or update a task
    */
   async saveTask(task: Task): Promise<void> {
-    // Find and remove old block index entry for this task (if any)
-    // We need to search through the index because the task object may have been mutated
-    for (const [blockId, taskId] of this.blockIndex.entries()) {
-      if (taskId === task.id && blockId !== task.linkedBlockId) {
-        this.blockIndex.delete(blockId);
-      }
+    const previousBlockId = this.taskBlockIndex.get(task.id);
+    if (previousBlockId && previousBlockId !== task.linkedBlockId) {
+      this.blockIndex.delete(previousBlockId);
+      this.taskBlockIndex.delete(task.id);
     }
-    
+
     // Add new block index entry if task has linkedBlockId
     if (task.linkedBlockId) {
       this.blockIndex.set(task.linkedBlockId, task.id);
+      this.taskBlockIndex.set(task.id, task.linkedBlockId);
     }
 
     task.updatedAt = new Date().toISOString();
@@ -153,6 +155,7 @@ export class TaskStorage {
     if (task?.linkedBlockId) {
       this.blockIndex.delete(task.linkedBlockId);
     }
+    this.taskBlockIndex.delete(id);
     
     this.tasks.delete(id);
     await this.save();
