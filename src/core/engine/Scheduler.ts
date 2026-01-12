@@ -4,7 +4,7 @@ import { RecurrenceEngine } from "./RecurrenceEngine";
 import { NotificationState } from "./NotificationState";
 import { TimezoneHandler } from "./TimezoneHandler";
 import { recordCompletion, recordMiss } from "@/core/models/Task";
-import { MISSED_GRACE_PERIOD_MS, SCHEDULER_INTERVAL_MS, LAST_RUN_TIMESTAMP_KEY } from "@/utils/constants";
+import { MISSED_GRACE_PERIOD_MS, SCHEDULER_INTERVAL_MS, LAST_RUN_TIMESTAMP_KEY, MAX_RECOVERY_ITERATIONS } from "@/utils/constants";
 import * as logger from "@/utils/logger";
 import type { Plugin } from "siyuan";
 
@@ -343,11 +343,10 @@ export class Scheduler {
     }
 
     let nextDue = currentDue;
-    const maxIterations = 100; // Safety limit
     let iterations = 0;
 
     // Keep advancing until we find a future occurrence
-    while (nextDue < now && iterations < maxIterations) {
+    while (nextDue < now && iterations < MAX_RECOVERY_ITERATIONS) {
       nextDue = this.recurrenceEngine.calculateNext(nextDue, task.frequency);
       iterations++;
     }

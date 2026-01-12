@@ -1,5 +1,6 @@
 import type { Frequency } from "@/core/models/Frequency";
 import { addDays, addWeeks, setTime, parseTime } from "@/utils/date";
+import { MAX_RECURRENCE_ITERATIONS, MAX_RECOVERY_ITERATIONS } from "@/utils/constants";
 
 /**
  * RecurrenceEngine calculates next occurrence dates based on frequency rules
@@ -165,10 +166,9 @@ export class RecurrenceEngine {
     let currentDate = new Date(firstOccurrence);
 
     // Safety limit to prevent infinite loops
-    const maxIterations = 1000;
     let iterations = 0;
 
-    while (currentDate <= endDate && iterations < maxIterations) {
+    while (currentDate <= endDate && iterations < MAX_RECURRENCE_ITERATIONS) {
       if (currentDate >= startDate) {
         occurrences.push(new Date(currentDate));
       }
@@ -198,19 +198,17 @@ export class RecurrenceEngine {
     let current = new Date(firstOccurrence);
     
     // Advance to first occurrence after lastCheckedAt
-    const maxAdvanceIterations = 1000;
     let advanceIterations = 0;
     
-    while (current <= lastCheckedAt && advanceIterations < maxAdvanceIterations) {
+    while (current <= lastCheckedAt && advanceIterations < MAX_RECURRENCE_ITERATIONS) {
       current = this.calculateNext(current, frequency);
       advanceIterations++;
     }
     
     // Collect all occurrences between lastCheckedAt and now
-    const maxIterations = 100; // Safety limit
     let iterations = 0;
     
-    while (current < now && iterations < maxIterations) {
+    while (current < now && iterations < MAX_RECOVERY_ITERATIONS) {
       missed.push(new Date(current));
       current = this.calculateNext(current, frequency);
       iterations++;

@@ -61,6 +61,13 @@ export const DEFAULT_SNOOZE_MINUTES = 15;
 
 export const MAX_RECENT_COMPLETIONS = 10;
 
+/**
+ * Safety limits for iteration loops
+ */
+export const MAX_RECURRENCE_ITERATIONS = 1000;
+
+export const MAX_RECOVERY_ITERATIONS = 100;
+
 export const SNOOZE_OPTIONS = [
   { label: "15 minutes", minutes: 15 },
   { label: "30 minutes", minutes: 30 },

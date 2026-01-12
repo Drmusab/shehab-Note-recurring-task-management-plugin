@@ -3,6 +3,16 @@ import type { Plugin } from "siyuan";
 import { STORAGE_KEY, BLOCK_ATTR_TASK_ID, BLOCK_ATTR_TASK_DUE, BLOCK_ATTR_TASK_ENABLED } from "@/utils/constants";
 
 /**
+ * Helper to safely access SiYuan's setBlockAttrs function
+ */
+function getSetBlockAttrs(): ((blockId: string, attrs: Record<string, string>) => Promise<void>) | null {
+  if (typeof (globalThis as any).setBlockAttrs === 'function') {
+    return (globalThis as any).setBlockAttrs;
+  }
+  return null;
+}
+
+/**
  * TaskStorage manages task persistence using SiYuan storage API
  * Enhanced with block index for fast lookups and block attribute sync
  */
@@ -119,9 +129,9 @@ export class TaskStorage {
     }
 
     try {
-      // Check if setBlockAttrs is available
-      if (typeof (globalThis as any).setBlockAttrs === 'function') {
-        await (globalThis as any).setBlockAttrs(task.linkedBlockId, {
+      const setBlockAttrs = getSetBlockAttrs();
+      if (setBlockAttrs) {
+        await setBlockAttrs(task.linkedBlockId, {
           [BLOCK_ATTR_TASK_ID]: task.id,
           [BLOCK_ATTR_TASK_DUE]: task.dueAt,
           [BLOCK_ATTR_TASK_ENABLED]: task.enabled ? 'true' : 'false',

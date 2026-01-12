@@ -4,6 +4,7 @@
  */
 
 import type { Plugin } from "siyuan";
+import { TaskManager } from "@/core/managers/TaskManager";
 import * as logger from "@/utils/logger";
 
 /**
@@ -43,10 +44,7 @@ export function registerBlockMenu(plugin: Plugin): void {
     });
     
     // Check if block already has a recurring task
-    // Note: This requires TaskManager to be available globally or passed to this function
     try {
-      // Try to get TaskManager instance if available
-      const { TaskManager } = require('@/core/managers/TaskManager');
       const manager = TaskManager.getInstance();
       if (manager.isReady()) {
         const storage = manager.getStorage();
