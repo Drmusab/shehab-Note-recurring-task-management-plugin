@@ -28,6 +28,9 @@ export class TimezoneHandler {
    */
   createLocalDateTime(date: Date, timeString: string): Date {
     const { hours, minutes } = parseTime(timeString);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      return new Date(date);
+    }
     const localDate = new Date(date);
     localDate.setHours(hours, minutes, 0, 0);
     return localDate;

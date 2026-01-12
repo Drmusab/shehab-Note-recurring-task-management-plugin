@@ -5,6 +5,33 @@ import { addDays, addWeeks, addMonths, setTime, parseTime } from "@/utils/date";
  * RecurrenceEngine calculates next occurrence dates based on frequency rules
  */
 export class RecurrenceEngine {
+  private normalizeInterval(interval: number): number {
+    if (!Number.isFinite(interval) || interval < 1) {
+      return 1;
+    }
+    return Math.floor(interval);
+  }
+
+  private normalizeWeekdays(weekdays?: number[]): number[] {
+    if (!Array.isArray(weekdays)) {
+      return [];
+    }
+
+    const unique = new Set<number>();
+    for (const weekday of weekdays) {
+      if (Number.isFinite(weekday) && weekday >= 0 && weekday <= 6) {
+        unique.add(Math.floor(weekday));
+      }
+    }
+
+    return Array.from(unique).sort((a, b) => a - b);
+  }
+
+  private normalizeDayOfMonth(dayOfMonth: number | undefined, fallback: number): number {
+    const candidate = Number.isFinite(dayOfMonth) ? Math.floor(dayOfMonth as number) : fallback;
+    return Math.min(Math.max(candidate, 1), 31);
+  }
+
   /**
    * Calculate the next occurrence date based on frequency
    * @param currentDue Current due date
@@ -12,7 +39,8 @@ export class RecurrenceEngine {
    * @returns Next occurrence date
    */
   calculateNext(currentDue: Date, frequency: Frequency): Date {
-    const { type, interval, time } = frequency;
+    const { type, time } = frequency;
+    const interval = this.normalizeInterval(frequency.interval);
     let nextDate: Date;
 
     switch (type) {
@@ -23,14 +51,14 @@ export class RecurrenceEngine {
         nextDate = this.calculateNextWeekly(
           currentDue,
           interval,
-          frequency.weekdays
+          this.normalizeWeekdays(frequency.weekdays)
         );
         break;
       case "monthly":
         nextDate = this.calculateNextMonthly(
           currentDue,
           interval,
-          frequency.dayOfMonth
+          this.normalizeDayOfMonth(frequency.dayOfMonth, currentDue.getDate())
         );
         break;
       default:
@@ -40,7 +68,9 @@ export class RecurrenceEngine {
     // Apply fixed time if specified
     if (time) {
       const { hours, minutes } = parseTime(time);
-      nextDate = setTime(nextDate, hours, minutes);
+      if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+        nextDate = setTime(nextDate, hours, minutes);
+      }
     }
 
     return nextDate;
@@ -72,7 +102,7 @@ export class RecurrenceEngine {
     let found = false;
 
     // Sort weekdays to process in order
-    const sortedWeekdays = [...weekdays].sort((a, b) => a - b);
+    const sortedWeekdays = weekdays;
 
     // First, check remaining days in current week
     for (const weekday of sortedWeekdays) {
