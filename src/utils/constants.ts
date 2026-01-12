@@ -103,3 +103,15 @@ export const WEEKDAY_NAMES = [
 ];
 
 export const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * Last run timestamp key for missed task recovery
+ */
+export const LAST_RUN_TIMESTAMP_KEY = "last-run-timestamp";
+
+/**
+ * Block attribute keys for syncing tasks to blocks
+ */
+export const BLOCK_ATTR_TASK_ID = "custom-recurring-task-id";
+export const BLOCK_ATTR_TASK_DUE = "custom-recurring-task-due";
+export const BLOCK_ATTR_TASK_ENABLED = "custom-recurring-task-enabled";

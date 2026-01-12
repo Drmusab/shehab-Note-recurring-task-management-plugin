@@ -178,4 +178,44 @@ export class RecurrenceEngine {
 
     return occurrences;
   }
+
+  /**
+   * Get all missed occurrences between two dates
+   * Used for recovering missed tasks after plugin restart
+   * @param lastCheckedAt Last time tasks were checked
+   * @param now Current time
+   * @param frequency Recurrence rule
+   * @param firstOccurrence First occurrence date (task creation date)
+   * @returns Array of missed occurrence dates
+   */
+  getMissedOccurrences(
+    lastCheckedAt: Date,
+    now: Date,
+    frequency: Frequency,
+    firstOccurrence: Date
+  ): Date[] {
+    const missed: Date[] = [];
+    let current = new Date(firstOccurrence);
+    
+    // Advance to first occurrence after lastCheckedAt
+    const maxAdvanceIterations = 1000;
+    let advanceIterations = 0;
+    
+    while (current <= lastCheckedAt && advanceIterations < maxAdvanceIterations) {
+      current = this.calculateNext(current, frequency);
+      advanceIterations++;
+    }
+    
+    // Collect all occurrences between lastCheckedAt and now
+    const maxIterations = 100; // Safety limit
+    let iterations = 0;
+    
+    while (current < now && iterations < maxIterations) {
+      missed.push(new Date(current));
+      current = this.calculateNext(current, frequency);
+      iterations++;
+    }
+    
+    return missed;
+  }
 }
