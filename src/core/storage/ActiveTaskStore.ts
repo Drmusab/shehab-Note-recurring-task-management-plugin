@@ -5,14 +5,17 @@ import * as logger from "@/utils/logger";
 import { TaskState, type TaskStateWriter } from "@/core/storage/TaskPersistenceController";
 import { promises as fs } from "fs";
 import path from "path";
+import { type SiYuanEnvironmentAPI, reportSiYuanApiIssue } from "@/core/api/SiYuanApiAdapter";
 
 const TEMP_SUFFIX = ".tmp";
 
 export class ActiveTaskStore implements TaskStateWriter {
   private plugin: Plugin;
+  private apiAdapter: SiYuanEnvironmentAPI;
 
-  constructor(plugin: Plugin) {
+  constructor(plugin: Plugin, apiAdapter: SiYuanEnvironmentAPI) {
     this.plugin = plugin;
+    this.apiAdapter = apiAdapter;
   }
 
   async loadActive(): Promise<Map<string, Task>> {
@@ -70,10 +73,18 @@ export class ActiveTaskStore implements TaskStateWriter {
   }
 
   private resolveStoragePath(storageKey: string): string | null {
-    const dataDir = (globalThis as any)?.siyuan?.config?.system?.dataDir as string | undefined;
+    const dataDir = this.apiAdapter.getDataDir();
     const pluginName = this.plugin.name;
 
     if (!dataDir || !pluginName) {
+      if (!dataDir) {
+        reportSiYuanApiIssue({
+          feature: "Atomic task storage",
+          capability: "dataDir",
+          message:
+            "SiYuan dataDir unavailable; falling back to plugin storage without atomic writes.",
+        });
+      }
       return null;
     }
 

@@ -13,16 +13,13 @@ import { ActiveTaskStore } from "@/core/storage/ActiveTaskStore";
 import { ArchiveTaskStore, type ArchiveQuery } from "@/core/storage/ArchiveTaskStore";
 import * as logger from "@/utils/logger";
 import { TaskPersistenceController } from "@/core/storage/TaskPersistenceController";
-
-/**
- * Helper to safely access SiYuan's setBlockAttrs function
- */
-function getSetBlockAttrs(): ((blockId: string, attrs: Record<string, string>) => Promise<void>) | null {
-  if (typeof (globalThis as any).setBlockAttrs === 'function') {
-    return (globalThis as any).setBlockAttrs;
-  }
-  return null;
-}
+import {
+  SiYuanApiAdapter,
+  SiYuanApiExecutionError,
+  SiYuanCapabilityError,
+  type SiYuanBlockAPI,
+  reportSiYuanApiIssue,
+} from "@/core/api/SiYuanApiAdapter";
 
 /**
  * TaskStorage manages task persistence using SiYuan storage API.
@@ -44,11 +41,16 @@ export class TaskStorage implements TaskStorageProvider {
   private activeStore: ActiveTaskStore;
   private archiveStore: ArchiveTaskStore;
   private persistence: TaskPersistenceController;
+  private blockAttrSyncEnabled = true;
+  private blockApi: SiYuanBlockAPI;
+  private apiAdapter: SiYuanApiAdapter;
 
-  constructor(plugin: Plugin) {
+  constructor(plugin: Plugin, apiAdapter: SiYuanApiAdapter = new SiYuanApiAdapter()) {
     this.plugin = plugin;
     this.activeTasks = new Map();
-    this.activeStore = new ActiveTaskStore(plugin);
+    this.apiAdapter = apiAdapter;
+    this.blockApi = apiAdapter;
+    this.activeStore = new ActiveTaskStore(plugin, apiAdapter);
     this.archiveStore = new ArchiveTaskStore(plugin);
     this.persistence = new TaskPersistenceController(this.activeStore);
   }
@@ -130,7 +132,7 @@ export class TaskStorage implements TaskStorageProvider {
     task.updatedAt = new Date().toISOString();
     this.activeTasks.set(task.id, task);
     await this.save();
-    
+
     // Sync to block attributes for persistence
     if (task.linkedBlockId) {
       await this.syncTaskToBlockAttrs(task);
@@ -142,22 +144,45 @@ export class TaskStorage implements TaskStorageProvider {
    * This ensures task information persists even if plugin data is lost
    */
   private async syncTaskToBlockAttrs(task: Task): Promise<void> {
-    if (!task.linkedBlockId) {
+    if (!task.linkedBlockId || !this.blockAttrSyncEnabled) {
+      return;
+    }
+
+    if (!this.apiAdapter.supportedCapabilities.setBlockAttrs) {
+      reportSiYuanApiIssue({
+        feature: "Block attribute sync",
+        capability: "setBlockAttrs",
+        message:
+          "Block attribute sync unavailable in current SiYuan version. Tasks will continue to function without block sync.",
+      });
+      this.blockAttrSyncEnabled = false;
       return;
     }
 
     try {
-      const setBlockAttrs = getSetBlockAttrs();
-      if (setBlockAttrs) {
-        await setBlockAttrs(task.linkedBlockId, {
-          [BLOCK_ATTR_TASK_ID]: task.id,
-          [BLOCK_ATTR_TASK_DUE]: task.dueAt,
-          [BLOCK_ATTR_TASK_ENABLED]: task.enabled ? 'true' : 'false',
+      await this.blockApi.setBlockAttrs(task.linkedBlockId, {
+        [BLOCK_ATTR_TASK_ID]: task.id,
+        [BLOCK_ATTR_TASK_DUE]: task.dueAt,
+        [BLOCK_ATTR_TASK_ENABLED]: task.enabled ? "true" : "false",
+      });
+    } catch (err) {
+      if (err instanceof SiYuanCapabilityError || err instanceof SiYuanApiExecutionError) {
+        reportSiYuanApiIssue({
+          feature: err.feature,
+          capability: err.capability,
+          message: err.message,
+          cause: err.cause,
+        });
+      } else {
+        reportSiYuanApiIssue({
+          feature: "Block attribute sync",
+          capability: "setBlockAttrs",
+          message:
+            "Unexpected error while syncing block attributes. Block sync disabled to keep tasks stable.",
+          cause: err,
         });
       }
-    } catch (err) {
-      // Fail silently as this is a best-effort enhancement
-      console.warn('Failed to sync task to block attrs:', err);
+      this.blockAttrSyncEnabled = false;
     }
   }
 
@@ -166,13 +191,13 @@ export class TaskStorage implements TaskStorageProvider {
    */
   async deleteTask(id: string): Promise<void> {
     const task = this.activeTasks.get(id);
-    
+
     // Remove from block index if task has linkedBlockId
     if (task?.linkedBlockId) {
       this.blockIndex.delete(task.linkedBlockId);
     }
     this.taskBlockIndex.delete(id);
-    
+
     this.activeTasks.delete(id);
     await this.save();
   }
