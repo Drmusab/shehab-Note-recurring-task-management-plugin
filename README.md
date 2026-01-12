@@ -60,21 +60,55 @@ npm run make-link -- --workspace=/path/to/shehab-note/workspace
 
 ```
 src/
-├── index.ts                      # Main plugin entry point
-├── index.scss                    # Global plugin styles
-├── core/                         # Core business logic
-│   ├── models/                   # Data models (Task, Frequency)
-│   ├── engine/                   # Recurrence & scheduling logic
-│   └── storage/                  # Data persistence
-├── services/                     # External integrations
-│   ├── NotificationService.ts    # Notification orchestrator
-│   └── senders/                  # Channel-specific senders
-├── components/                   # Svelte UI components
-│   ├── Dashboard.svelte          # Main dashboard
-│   ├── tabs/                     # Tab components
-│   ├── cards/                    # Task cards & forms
-│   └── settings/                 # Settings panel
-└── utils/                        # Utility functions
+├── index.ts                          # Main plugin entry point
+├── index.scss                        # Global styles
+├── core/
+│   ├── api/
+│   │   └── SiYuanApiAdapter.ts       # SiYuan API abstraction
+│   ├── engine/
+│   │   ├── RecurrenceEngine.ts       # Date calculation logic
+│   │   ├── Scheduler.ts              # Task timing & events
+│   │   ├── SchedulerEvents.ts        # Event type definitions
+│   │   ├── TimezoneHandler.ts        # Timezone utilities
+│   │   └── NotificationState.ts      # Notification tracking
+│   ├── managers/
+│   │   └── TaskManager.ts            # Singleton lifecycle manager
+│   ├── models/
+│   │   ├── Task.ts                   # Task entity & helpers
+│   │   └── Frequency.ts              # Recurrence rule types
+│   └── storage/
+│       ├── TaskStorage.ts            # Main storage facade
+│       ├── ActiveTaskStore.ts        # Active task persistence
+│       ├── ArchiveTaskStore.ts       # Archive management
+│       ├── TaskPersistenceController.ts  # Write coalescing
+│       └── MigrationManager.ts       # Schema migrations
+├── services/
+│   ├── EventService.ts               # n8n webhook orchestration
+│   └── types. ts                      # Service type definitions
+├── components/
+│   ├── Dashboard.svelte              # Main UI container
+│   ├── dashboard/
+│   │   └── taskState. ts              # UI state helpers
+│   ├── tabs/
+│   │   ├── TodayTab.svelte           # Today & overdue view
+│   │   ├── AllTasksTab.svelte        # All tasks management
+│   │   ├── TimelineTab.svelte        # Calendar view
+│   │   └── AnalyticsTab.svelte       # Analytics dashboard
+│   ├── cards/
+│   │   ├── TaskCard.svelte           # Task display
+│   │   └── TaskForm.svelte           # Task creation/editing
+│   └── settings/
+│       └── Settings.svelte           # Configuration panel
+├── plugin/
+│   ├── commands. ts                   # Slash commands & hotkeys
+│   ├── menus.ts                      # Block context menus
+│   └── topbar.ts                     # Topbar integration
+├── utils/
+│   ├── constants.ts                  # Application constants
+│   ├── date.ts                       # Date utilities
+│   ├── logger.ts                     # Logging
+│   └── notifications.ts              # Toast notifications
+└── __tests__/                        # Test files
 ```
 
 ## Usage
