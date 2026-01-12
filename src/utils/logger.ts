@@ -1,0 +1,103 @@
+/**
+ * Structured logging utility for debugging and diagnostics
+ */
+
+export interface LogEntry {
+  timestamp: string;
+  level: "debug" | "info" | "warn" | "error";
+  message: string;
+  context?: any;
+}
+
+const MAX_LOG_ENTRIES = 500;
+const logEntries: LogEntry[] = [];
+
+// Enable debug logging based on environment
+const DEBUG_ENABLED = typeof process !== "undefined" && process.env?.DEBUG === "true";
+
+/**
+ * Add a log entry
+ */
+function addLogEntry(level: LogEntry["level"], message: string, context?: any): void {
+  const entry: LogEntry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    context,
+  };
+
+  logEntries.push(entry);
+
+  // Keep only the most recent entries
+  if (logEntries.length > MAX_LOG_ENTRIES) {
+    logEntries.shift();
+  }
+
+  // Console output
+  const prefix = `[${level.toUpperCase()}] [${entry.timestamp}]`;
+  if (level === "error") {
+    console.error(prefix, message, context || "");
+  } else if (level === "warn") {
+    console.warn(prefix, message, context || "");
+  } else if (level === "debug" && DEBUG_ENABLED) {
+    console.debug(prefix, message, context || "");
+  } else if (level === "info") {
+    console.log(prefix, message, context || "");
+  }
+}
+
+/**
+ * Log debug message (only if DEBUG=true)
+ */
+export function debug(message: string, context?: any): void {
+  addLogEntry("debug", message, context);
+}
+
+/**
+ * Log info message
+ */
+export function info(message: string, context?: any): void {
+  addLogEntry("info", message, context);
+}
+
+/**
+ * Log warning message
+ */
+export function warn(message: string, context?: any): void {
+  addLogEntry("warn", message, context);
+}
+
+/**
+ * Log error message
+ */
+export function error(message: string, context?: any): void {
+  addLogEntry("error", message, context);
+}
+
+/**
+ * Get recent log entries
+ */
+export function getRecentLogs(count: number = 100): LogEntry[] {
+  return logEntries.slice(-count);
+}
+
+/**
+ * Get error logs only
+ */
+export function getErrorLogs(): LogEntry[] {
+  return logEntries.filter((entry) => entry.level === "error");
+}
+
+/**
+ * Export all logs as JSON string
+ */
+export function exportLogs(): string {
+  return JSON.stringify(logEntries, null, 2);
+}
+
+/**
+ * Clear all logs
+ */
+export function clearLogs(): void {
+  logEntries.length = 0;
+}
