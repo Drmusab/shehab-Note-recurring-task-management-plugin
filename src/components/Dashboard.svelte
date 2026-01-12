@@ -111,6 +111,17 @@
   function handleCloseSettings() {
     showSettings = false;
   }
+
+  async function handleTaskSkip(task: Task) {
+    try {
+      await eventService.emitTaskEvent("task.skipped", task);
+      await scheduler.skipTaskOccurrence(task.id);
+      refreshTasks();
+      toast.info(`Task "${task.name}" skipped to next occurrence`);
+    } catch (err) {
+      toast.error("Failed to skip task: " + err);
+    }
+  }
 </script>
 
 <div class="dashboard">
@@ -288,13 +299,3 @@
     z-index: 1000;
   }
 </style>
-  async function handleTaskSkip(task: Task) {
-    try {
-      await eventService.emitTaskEvent("task.skipped", task);
-      await scheduler.skipTaskOccurrence(task.id);
-      refreshTasks();
-      toast.info(`Task "${task.name}" skipped to next occurrence`);
-    } catch (err) {
-      toast.error("Failed to skip task: " + err);
-    }
-  }
