@@ -24,6 +24,7 @@ export class Scheduler {
   private timezoneHandler: TimezoneHandler;
   private intervalId: number | null = null;
   private isChecking = false;
+  private lastCheckStartTime: number = 0;
   private isRunning = false;
   private intervalMs: number;
   private plugin: Plugin | null = null;
@@ -31,6 +32,7 @@ export class Scheduler {
     "task:due": new Set(),
     "task:overdue": new Set(),
   };
+  private readonly MAX_EMITTED_ENTRIES = 1000;
 
   constructor(
     storage: TaskStorage,
@@ -108,10 +110,19 @@ export class Scheduler {
    * Check for tasks that are due and trigger notifications
    */
   private checkDueTasks(): void {
+    // Add timeout recovery - if isChecking has been true for > 30 seconds, force reset
     if (this.isChecking) {
-      return;
+      const checkingDuration = Date.now() - (this.lastCheckStartTime || 0);
+      if (checkingDuration > 30000) {
+        logger.warn("Scheduler check timeout detected, forcing reset");
+        this.isChecking = false;
+      } else {
+        return;
+      }
     }
+    
     this.isChecking = true;
+    this.lastCheckStartTime = Date.now();
     const now = new Date();
     const tasks = this.storage.getEnabledTasks();
 
@@ -162,8 +173,25 @@ export class Scheduler {
           }
         }
       }
+      
+      // Cleanup emitted sets periodically
+      this.cleanupEmittedSets();
     } finally {
       this.isChecking = false;
+    }
+  }
+
+  private cleanupEmittedSets(): void {
+    if (this.emittedDue.size > this.MAX_EMITTED_ENTRIES) {
+      const entries = Array.from(this.emittedDue);
+      this.emittedDue = new Set(entries.slice(-this.MAX_EMITTED_ENTRIES / 2));
+      logger.info(`Cleaned up emittedDue set: ${entries.length} -> ${this.emittedDue.size}`);
+    }
+    
+    if (this.emittedMissed.size > this.MAX_EMITTED_ENTRIES) {
+      const entries = Array.from(this.emittedMissed);
+      this.emittedMissed = new Set(entries.slice(-this.MAX_EMITTED_ENTRIES / 2));
+      logger.info(`Cleaned up emittedMissed set: ${entries.length} -> ${this.emittedMissed.size}`);
     }
   }
 

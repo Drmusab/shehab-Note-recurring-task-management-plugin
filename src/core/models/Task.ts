@@ -1,4 +1,5 @@
 import type { Frequency } from "./Frequency";
+import { isValidFrequency } from "./Frequency";
 import { MAX_RECENT_COMPLETIONS, CURRENT_SCHEMA_VERSION } from "@/utils/constants";
 
 /**
@@ -131,14 +132,23 @@ function generateTaskId(): string {
 /**
  * Type guard to check if an object is a valid Task
  */
-export function isTask(obj: any): obj is Task {
+export function isTask(obj: unknown): obj is Task {
+  if (!obj || typeof obj !== "object") {
+    return false;
+  }
+  
+  const candidate = obj as Record<string, unknown>;
+  
   return (
-    obj &&
-    typeof obj.id === "string" &&
-    typeof obj.name === "string" &&
-    typeof obj.dueAt === "string" &&
-    typeof obj.enabled === "boolean" &&
-    obj.frequency !== undefined
+    typeof candidate.id === "string" &&
+    candidate.id.length > 0 &&
+    typeof candidate.name === "string" &&
+    typeof candidate.dueAt === "string" &&
+    typeof candidate.enabled === "boolean" &&
+    candidate.frequency !== undefined &&
+    isValidFrequency(candidate.frequency as any) &&
+    typeof candidate.createdAt === "string" &&
+    typeof candidate.updatedAt === "string"
   );
 }
 

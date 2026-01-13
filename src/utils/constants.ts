@@ -4,7 +4,8 @@
 
 export const PLUGIN_NAME = "plugin-sample-shehab-note";
 
-export const STORAGE_KEY = "recurring-tasks";
+// Note: STORAGE_KEY is deprecated. Use STORAGE_ACTIVE_KEY or STORAGE_LEGACY_KEY instead.
+export const STORAGE_KEY = "recurring-tasks-deprecated";
 export const STORAGE_ACTIVE_KEY = "recurring-tasks-active";
 export const STORAGE_ARCHIVE_KEY = "recurring-tasks-archive";
 export const STORAGE_LEGACY_KEY = "recurring-tasks";

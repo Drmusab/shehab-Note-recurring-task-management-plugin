@@ -13,16 +13,27 @@
 
   let { tasks, onEdit, onDelete, onToggleEnabled, onCreate }: Props = $props();
 
+  let confirmingDelete: Task | null = $state(null);
+
   const sortedTasks = $derived(
     [...tasks].sort(
       (a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
     )
   );
 
-  function handleDelete(task: Task) {
-    if (confirm(`Are you sure you want to delete "${task.name}"?`)) {
-      onDelete(task);
+  function requestDelete(task: Task) {
+    confirmingDelete = task;
+  }
+
+  function confirmDelete() {
+    if (confirmingDelete) {
+      onDelete(confirmingDelete);
+      confirmingDelete = null;
     }
+  }
+
+  function cancelDelete() {
+    confirmingDelete = null;
   }
 
   function getFrequencyLabel(task: Task): string {
@@ -97,7 +108,7 @@
                     </button>
                     <button
                       class="task-action-btn task-action-btn--delete"
-                      onclick={() => handleDelete(task)}
+                      onclick={() => requestDelete(task)}
                       title="Delete"
                     >
                       🗑️
@@ -112,6 +123,19 @@
     {/if}
   </div>
 </div>
+
+{#if confirmingDelete}
+  <div class="delete-confirm-overlay">
+    <div class="delete-confirm-dialog">
+      <h3>Delete Task?</h3>
+      <p>Are you sure you want to delete "{confirmingDelete.name}"? This action cannot be undone.</p>
+      <div class="delete-confirm-actions">
+        <button class="btn-cancel" onclick={cancelDelete}>Cancel</button>
+        <button class="btn-delete" onclick={confirmDelete}>Delete</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .all-tasks-tab {
@@ -267,5 +291,75 @@
 
   input:checked + .toggle-slider:before {
     transform: translateX(20px);
+  }
+
+  .delete-confirm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .delete-confirm-dialog {
+    background: var(--b3-theme-surface);
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 400px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .delete-confirm-dialog h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--b3-theme-on-surface);
+  }
+
+  .delete-confirm-dialog p {
+    margin: 0 0 24px 0;
+    font-size: 14px;
+    color: var(--b3-theme-on-surface-light);
+    line-height: 1.5;
+  }
+
+  .delete-confirm-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+
+  .btn-cancel,
+  .btn-delete {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .btn-cancel {
+    background: var(--b3-theme-surface-lighter);
+    color: var(--b3-theme-on-surface);
+  }
+
+  .btn-cancel:hover {
+    background: var(--b3-theme-surface-light);
+  }
+
+  .btn-delete {
+    background: var(--b3-theme-error);
+    color: white;
+  }
+
+  .btn-delete:hover {
+    background: var(--b3-theme-error-light);
   }
 </style>

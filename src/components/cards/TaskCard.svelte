@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Task } from "@/core/models/Task";
+  import { calculateTaskHealth } from "@/core/models/Task";
   import { formatDateTime, isOverdue, isToday } from "@/utils/date";
   import { PRIORITY_COLORS, SNOOZE_OPTIONS } from "@/utils/constants";
 
@@ -40,6 +41,13 @@
     if (streak >= 3) return "⚡";
     return "✨";
   });
+
+  const health = $derived(calculateTaskHealth(task));
+  const healthClass = $derived(
+    health >= 80 ? "health--good" :
+    health >= 50 ? "health--fair" :
+    "health--poor"
+  );
 
   let showSnoozeMenu = $state(false);
 
@@ -124,11 +132,16 @@
     {/if}
   </div>
 
+  <div class="task-card__health {healthClass}" title="Task health: {health}%">
+    <div class="task-card__health-bar" style="width: {health}%"></div>
+  </div>
+
   <div class="task-card__actions">
     <div class="task-card__snooze-container">
       <button
         class="task-card__action task-card__action--snooze"
         onclick={toggleSnoozeMenu}
+        aria-label="Snooze task"
       >
         🕒 Snooze
       </button>
@@ -145,13 +158,25 @@
         </div>
       {/if}
     </div>
-    <button class="task-card__action task-card__action--delay" onclick={handleDelay}>
+    <button 
+      class="task-card__action task-card__action--delay" 
+      onclick={handleDelay}
+      aria-label="Delay task to tomorrow"
+    >
       🕒 Tomorrow
     </button>
-    <button class="task-card__action task-card__action--skip" onclick={handleSkip}>
+    <button 
+      class="task-card__action task-card__action--skip" 
+      onclick={handleSkip}
+      aria-label="Skip this occurrence"
+    >
       ⏭️ Skip
     </button>
-    <button class="task-card__action task-card__action--done" onclick={handleDone}>
+    <button 
+      class="task-card__action task-card__action--done" 
+      onclick={handleDone}
+      aria-label="Mark task as done"
+    >
       ✅ Done
     </button>
   </div>
@@ -370,5 +395,31 @@
 
   .task-card__snooze-option:last-child {
     border-radius: 0 0 6px 6px;
+  }
+
+  .task-card__health {
+    height: 4px;
+    background: var(--b3-border-color);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+
+  .task-card__health-bar {
+    height: 100%;
+    transition: width 0.3s ease;
+  }
+
+  .health--good .task-card__health-bar {
+    background: #4caf50;
+  }
+
+  .health--fair .task-card__health-bar {
+    background: #ff9800;
+  }
+
+  .health--poor .task-card__health-bar {
+    background: #f44336;
   }
 </style>

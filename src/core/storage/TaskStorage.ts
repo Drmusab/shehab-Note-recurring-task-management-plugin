@@ -38,6 +38,7 @@ export class TaskStorage implements TaskStorageProvider {
   private activeTasks: Map<string, Task>;
   private blockIndex: Map<string, string> = new Map(); // blockId -> taskId
   private taskBlockIndex: Map<string, string> = new Map(); // taskId -> blockId
+  private dueIndex: Map<string, Set<string>> = new Map(); // dateKey (YYYY-MM-DD) -> taskIds
   private activeStore: ActiveTaskStore;
   private archiveStore: ArchiveTaskStore;
   private persistence: TaskPersistenceController;
@@ -63,6 +64,7 @@ export class TaskStorage implements TaskStorageProvider {
     this.activeTasks = await this.activeStore.loadActive();
     logger.info(`Loaded ${this.activeTasks.size} active tasks from storage`);
     this.rebuildBlockIndex();
+    this.rebuildDueIndex();
   }
 
   /**
@@ -78,6 +80,56 @@ export class TaskStorage implements TaskStorageProvider {
       }
     }
     logger.info(`Rebuilt block index with ${this.blockIndex.size} entries`);
+  }
+
+  /**
+   * Rebuild the due date index from existing tasks
+   */
+  private rebuildDueIndex(): void {
+    this.dueIndex.clear();
+    for (const task of this.activeTasks.values()) {
+      if (task.enabled) {
+        this.addToDueIndex(task);
+      }
+    }
+    logger.info(`Rebuilt due index with ${this.dueIndex.size} date entries`);
+  }
+
+  /**
+   * Add a task to the due date index
+   */
+  private addToDueIndex(task: Task): void {
+    const dateKey = task.dueAt.slice(0, 10); // YYYY-MM-DD
+    if (!this.dueIndex.has(dateKey)) {
+      this.dueIndex.set(dateKey, new Set());
+    }
+    this.dueIndex.get(dateKey)!.add(task.id);
+  }
+
+  /**
+   * Remove a task from the due date index
+   */
+  private removeFromDueIndex(task: Task): void {
+    const dateKey = task.dueAt.slice(0, 10);
+    const ids = this.dueIndex.get(dateKey);
+    if (ids) {
+      ids.delete(task.id);
+      if (ids.size === 0) {
+        this.dueIndex.delete(dateKey);
+      }
+    }
+  }
+
+  /**
+   * Get tasks due on a specific date
+   */
+  getTasksDueOn(date: Date): Task[] {
+    const dateKey = date.toISOString().slice(0, 10);
+    const ids = this.dueIndex.get(dateKey);
+    if (!ids) return [];
+    return Array.from(ids)
+      .map(id => this.activeTasks.get(id))
+      .filter((task): task is Task => task !== undefined && task.enabled);
   }
 
   /**
@@ -117,16 +169,27 @@ export class TaskStorage implements TaskStorageProvider {
    * Add or update a task
    */
   async saveTask(task: Task): Promise<void> {
+    const previousTask = this.activeTasks.get(task.id);
     const previousBlockId = this.taskBlockIndex.get(task.id);
     if (previousBlockId && previousBlockId !== task.linkedBlockId) {
       this.blockIndex.delete(previousBlockId);
       this.taskBlockIndex.delete(task.id);
     }
 
+    // Remove from old due date index if the date changed
+    if (previousTask && previousTask.dueAt !== task.dueAt) {
+      this.removeFromDueIndex(previousTask);
+    }
+
     // Add new block index entry if task has linkedBlockId
     if (task.linkedBlockId) {
       this.blockIndex.set(task.linkedBlockId, task.id);
       this.taskBlockIndex.set(task.id, task.linkedBlockId);
+    }
+
+    // Update due date index
+    if (task.enabled) {
+      this.addToDueIndex(task);
     }
 
     task.updatedAt = new Date().toISOString();
@@ -197,6 +260,11 @@ export class TaskStorage implements TaskStorageProvider {
       this.blockIndex.delete(task.linkedBlockId);
     }
     this.taskBlockIndex.delete(id);
+
+    // Remove from due date index
+    if (task) {
+      this.removeFromDueIndex(task);
+    }
 
     this.activeTasks.delete(id);
     await this.save();
