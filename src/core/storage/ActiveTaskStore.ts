@@ -19,6 +19,9 @@ export class ActiveTaskStore implements TaskStateWriter {
     this.apiAdapter = apiAdapter;
   }
 
+  /**
+   * Load active tasks from storage.
+   */
   async loadActive(): Promise<Map<string, Task>> {
     try {
       const data = await this.plugin.loadData(STORAGE_ACTIVE_KEY);
@@ -31,10 +34,16 @@ export class ActiveTaskStore implements TaskStateWriter {
     return new Map();
   }
 
+  /**
+   * Persist active tasks to storage.
+   */
   async saveActive(tasks: Map<string, Task>): Promise<void> {
     await this.write({ tasks: Array.from(tasks.values()) });
   }
 
+  /**
+   * Write a full task state snapshot.
+   */
   async write(state: TaskState): Promise<void> {
     try {
       await this.saveActiveAtomic(state);

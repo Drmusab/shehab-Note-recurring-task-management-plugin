@@ -7,6 +7,7 @@
     tasks: Task[];
     onEdit: (task: Task) => void;
     onDelete: (task: Task) => void;
+    onDuplicate: (task: Task) => void;
     onToggleEnabled: (task: Task) => void;
     onBulkEnable: (taskIds: string[]) => void;
     onBulkDisable: (taskIds: string[]) => void;
@@ -14,7 +15,7 @@
     onCreate: () => void;
   }
 
-  let { tasks, onEdit, onDelete, onToggleEnabled, onBulkEnable, onBulkDisable, onBulkDelete, onCreate }: Props = $props();
+  let { tasks, onEdit, onDelete, onDuplicate, onToggleEnabled, onBulkEnable, onBulkDisable, onBulkDelete, onCreate }: Props = $props();
 
   let confirmingDelete: Task | null = $state(null);
   let confirmingBulkDelete = $state(false);
@@ -165,7 +166,7 @@
 
   function getFrequencyLabel(task: Task): string {
     const { type, interval } = task.frequency;
-    const unit = type === "daily" ? "day" : type === "weekly" ? "week" : "month";
+    const unit = type === "daily" ? "day" : type === "weekly" ? "week" : type === "monthly" ? "month" : "year";
     const base = interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
     if (type === "weekly") {
       return `${base} on ${task.frequency.weekdays
@@ -175,8 +176,27 @@
     if (type === "monthly") {
       return `${base} on day ${task.frequency.dayOfMonth}`;
     }
+    if (type === "yearly") {
+      const monthLabel = monthNames[task.frequency.month] ?? `Month ${task.frequency.month + 1}`;
+      return `${base} on ${monthLabel} ${task.frequency.dayOfMonth}`;
+    }
     return base;
   }
+
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
 </script>
 
 <div class="all-tasks-tab">
@@ -188,8 +208,9 @@
         <input
           class="all-tasks-tab__search-input"
           type="search"
-          placeholder="Search tasks"
+          placeholder="Search tasks (name, tags, block content)"
           aria-label="Search tasks"
+          title="Searches task names, descriptions, tags, and linked block content."
           bind:value={searchInput}
           disabled={sortedTasks.length === 0}
         />
@@ -306,6 +327,13 @@
                         title="Edit"
                       >
                         ✏️
+                      </button>
+                      <button
+                        class="task-action-btn task-action-btn--duplicate"
+                        onclick={() => onDuplicate(task)}
+                        title="Duplicate"
+                      >
+                        📄
                       </button>
                       <button
                         class="task-action-btn task-action-btn--delete"

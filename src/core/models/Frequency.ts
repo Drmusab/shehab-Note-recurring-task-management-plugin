@@ -1,7 +1,7 @@
 /**
  * Frequency types for recurring tasks
  */
-export type FrequencyType = "daily" | "weekly" | "monthly";
+export type FrequencyType = "daily" | "weekly" | "monthly" | "yearly";
 
 /**
  * Frequency/Recurrence rule definition
@@ -46,6 +46,22 @@ export type Frequency =
       anchorDate?: string;
       /** Optional IANA timezone identifier */
       timezone?: string;
+    }
+  | {
+      /** Type of recurrence */
+      type: "yearly";
+      /** Interval multiplier (e.g., every 2 years) */
+      interval: number;
+      /** Month of year (0-11, January=0) */
+      month: number;
+      /** Day of month (1-31) */
+      dayOfMonth: number;
+      /** Optional fixed time in HH:mm format (e.g., "09:00") */
+      time?: string;
+      /** Optional anchor date (ISO string) for future recurrence alignment */
+      anchorDate?: string;
+      /** Optional IANA timezone identifier */
+      timezone?: string;
     };
 
 /**
@@ -81,6 +97,15 @@ export function isValidFrequency(frequency: Frequency): boolean {
 
   if (frequency.type === "monthly") {
     return frequency.dayOfMonth >= 1 && frequency.dayOfMonth <= 31;
+  }
+
+  if (frequency.type === "yearly") {
+    return (
+      frequency.month >= 0 &&
+      frequency.month <= 11 &&
+      frequency.dayOfMonth >= 1 &&
+      frequency.dayOfMonth <= 31
+    );
   }
   
   return true;

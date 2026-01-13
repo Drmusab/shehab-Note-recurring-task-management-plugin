@@ -10,10 +10,10 @@ import {
   LAST_RUN_TIMESTAMP_KEY,
   MAX_RECOVERY_ITERATIONS,
   MISSED_GRACE_PERIOD_MS,
-  SCHEDULER_INTERVAL_MS,
 } from "@/utils/constants";
 import * as logger from "@/utils/logger";
 import type { Plugin } from "siyuan";
+import { SchedulerTimer } from "@/core/engine/SchedulerTimer";
 
 /**
  * Scheduler manages task timing and emits semantic events.
@@ -29,11 +29,8 @@ export class Scheduler {
   private emittedDue: Set<string> = new Set();
   private emittedMissed: Set<string> = new Set();
   private timezoneHandler: TimezoneHandler;
-  private intervalId: number | null = null;
   private isChecking = false;
   private lastCheckStartTime: number = 0;
-  private isRunning = false;
-  private intervalMs: number;
   private plugin: Plugin | null = null;
   private listeners: Record<SchedulerEventType, Set<SchedulerEventListener>> = {
     "task:due": new Set(),
@@ -43,6 +40,7 @@ export class Scheduler {
   private readonly EMITTED_SAVE_DEBOUNCE_MS = 1500;
   private persistTimeoutId: number | null = null;
   private emittedStateReady: Promise<void> | null = null;
+  private timer: SchedulerTimer;
 
   constructor(
     storage: TaskStorage,
@@ -52,8 +50,10 @@ export class Scheduler {
     this.storage = storage;
     this.recurrenceEngine = new RecurrenceEngine();
     this.timezoneHandler = new TimezoneHandler();
-    this.intervalMs = intervalMs;
     this.plugin = plugin || null;
+    this.timer = new SchedulerTimer(intervalMs, () => {
+      this.checkDueTasks();
+    });
   }
 
   /**
@@ -68,32 +68,10 @@ export class Scheduler {
    * Start the scheduler
    */
   start(): void {
-    const startScheduler = (): void => {
-      this.checkDueTasks(); // Check immediately
-      this.isRunning = true;
-
-      const scheduleNextTick = (): void => {
-        if (!this.isRunning) {
-          return;
-        }
-        const now = Date.now();
-        const intervalMs = this.intervalMs > 0 ? this.intervalMs : SCHEDULER_INTERVAL_MS;
-        const delay = intervalMs - (now % intervalMs);
-        // Cast to number for cross-environment compatibility (NodeJS.Timeout vs number)
-        this.intervalId = globalThis.setTimeout(() => {
-          this.checkDueTasks();
-          scheduleNextTick();
-        }, delay) as number;
-      };
-
-      // Use a self-correcting timeout to prevent long-uptime drift.
-      scheduleNextTick();
-
-      logger.info("Scheduler started");
-    };
-
     void this.ensureEmittedStateLoaded().finally(() => {
-      startScheduler();
+      this.checkDueTasks(); // Check immediately
+      this.timer.start();
+      logger.info("Scheduler started");
     });
   }
 
@@ -101,11 +79,7 @@ export class Scheduler {
    * Stop the scheduler
    */
   stop(): void {
-    if (this.intervalId !== null) {
-      globalThis.clearTimeout(this.intervalId);
-      this.intervalId = null;
-    }
-    this.isRunning = false;
+    this.timer.stop();
     void this.persistEmittedState();
     logger.info("Scheduler stopped");
   }

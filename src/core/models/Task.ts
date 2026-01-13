@@ -130,6 +130,31 @@ function generateTaskId(): string {
 }
 
 /**
+ * Create a duplicate task with a new ID and timestamps.
+ */
+export function duplicateTask(task: Task, overrides: Partial<Task> = {}): Task {
+  const now = new Date().toISOString();
+  const clone: Task = {
+    ...task,
+    id: generateTaskId(),
+    createdAt: now,
+    updatedAt: now,
+    lastCompletedAt: undefined,
+    completionCount: 0,
+    missCount: 0,
+    currentStreak: 0,
+    bestStreak: 0,
+    recentCompletions: [],
+    snoozeCount: 0,
+  };
+
+  return {
+    ...clone,
+    ...overrides,
+  };
+}
+
+/**
  * Type guard to check if an object is a valid Task
  */
 export function isTask(obj: unknown): obj is Task {

@@ -27,9 +27,13 @@ import {
  * chunked files and loaded on demand to keep startup fast.
  */
 export interface TaskStorageProvider {
+  /** Load active tasks from storage. */
   loadActive(): Promise<Map<string, Task>>;
+  /** Save active tasks to storage. */
   saveActive(tasks: Map<string, Task>): Promise<void>;
+  /** Archive a completed task. */
   archiveTask(task: Task): Promise<void>;
+  /** Load archived tasks with optional filtering. */
   loadArchive(filter?: ArchiveQuery): Promise<Task[]>;
 }
 
@@ -196,6 +200,9 @@ export class TaskStorage implements TaskStorageProvider {
     this.persistence.requestSave({ tasks: Array.from(this.activeTasks.values()) });
   }
 
+  /**
+   * Flush any pending task persistence writes.
+   */
   async flush(): Promise<void> {
     await this.persistence.flush();
   }
@@ -389,18 +396,30 @@ export class TaskStorage implements TaskStorageProvider {
     await this.save();
   }
 
+  /**
+   * Load active tasks from storage (TaskStorageProvider API).
+   */
   async loadActive(): Promise<Map<string, Task>> {
     return this.activeStore.loadActive();
   }
 
+  /**
+   * Persist active tasks via the TaskPersistenceController.
+   */
   async saveActive(tasks: Map<string, Task>): Promise<void> {
     this.persistence.requestSave({ tasks: Array.from(tasks.values()) });
   }
 
+  /**
+   * Archive a completed task snapshot.
+   */
   async archiveTask(task: Task): Promise<void> {
     await this.archiveStore.archiveTask(task);
   }
 
+  /**
+   * Load archived tasks with optional filtering.
+   */
   async loadArchive(filter?: ArchiveQuery): Promise<Task[]> {
     return this.archiveStore.loadArchive(filter);
   }

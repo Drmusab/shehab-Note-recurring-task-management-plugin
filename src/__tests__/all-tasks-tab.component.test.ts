@@ -31,6 +31,7 @@ describe("AllTasksTab", () => {
     const onBulkDelete = vi.fn();
     const onEdit = vi.fn();
     const onDelete = vi.fn();
+    const onDuplicate = vi.fn();
     const onToggleEnabled = vi.fn();
     const onCreate = vi.fn();
     const tasks = [createTask("task-1", "Alpha"), createTask("task-2", "Beta")];
@@ -40,6 +41,7 @@ describe("AllTasksTab", () => {
         tasks,
         onEdit,
         onDelete,
+        onDuplicate,
         onToggleEnabled,
         onBulkEnable,
         onBulkDisable,
@@ -66,6 +68,7 @@ describe("AllTasksTab", () => {
         tasks,
         onEdit: vi.fn(),
         onDelete: vi.fn(),
+        onDuplicate: vi.fn(),
         onToggleEnabled: vi.fn(),
         onBulkEnable: vi.fn(),
         onBulkDisable: vi.fn(),
