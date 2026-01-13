@@ -682,19 +682,20 @@
   }
 
   .task-form__weekdays {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 8px;
-    flex-wrap: wrap;
   }
 
   .task-form__weekday {
-    padding: 8px 12px;
+    padding: 10px 0;
     border: 1px solid var(--b3-border-color);
-    border-radius: 6px;
+    border-radius: 999px;
     background: var(--b3-theme-background);
     color: var(--b3-theme-on-background);
     cursor: pointer;
     transition: all 0.2s;
+    font-weight: 600;
     min-width: 36px;
     text-align: center;
   }

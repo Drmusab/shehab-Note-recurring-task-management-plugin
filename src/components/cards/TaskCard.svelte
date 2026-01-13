@@ -311,6 +311,13 @@
             {option.label}
           </button>
         {/each}
+        <button
+          class="task-card__snooze-chip task-card__snooze-chip--tomorrow"
+          onclick={handleDelay}
+          aria-label="Snooze until tomorrow"
+        >
+          Tomorrow
+        </button>
       </div>
       {#if showSnoozeMenu}
         <div class="task-card__snooze-menu" onkeydown={handleSnoozeMenuKeydown} role="menu" tabindex="0">
@@ -553,6 +560,11 @@
 
   .task-card__snooze-chip:hover {
     background: var(--b3-theme-surface-light);
+  }
+
+  .task-card__snooze-chip--tomorrow {
+    border-style: dashed;
+    font-weight: 600;
   }
 
   .task-card__action--delay {

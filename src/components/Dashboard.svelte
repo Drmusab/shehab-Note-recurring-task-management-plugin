@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { Task } from "@/core/models/Task";
-  import { duplicateTask, recordCompletion, recordMiss } from "@/core/models/Task";
+  import { duplicateTask, recordMiss } from "@/core/models/Task";
   import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
   import type { Scheduler } from "@/core/engine/Scheduler";
   import type { EventService } from "@/services/EventService";
   import { showToast, toast } from "@/utils/notifications";
   import { isValidFrequency } from "@/core/models/Frequency";
+  import { pluginEventBus } from "@/core/events/PluginEventBus";
   import {
     getTodayAndOverdueTasks,
     removeTask,
@@ -37,37 +38,12 @@
   let showTaskForm = $state(false);
   let showSettings = $state(false);
   let editingTask = $state<Task | undefined>(undefined);
-  const pendingCompletions = new Map<string, { timeoutId: number; snapshot: Task }>();
-  const completionLocks = new Set<string>();
   /**
    * Dashboard task state (single UI source of truth).
    * Storage is only used for initial hydration or explicit reloads.
    */
   let allTasks = $state<Task[]>([]);
   let todayTasks = $derived(getTodayAndOverdueTasks(allTasks));
-
-  function formatNextDueLabel(date: Date): string {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-
-    const timeLabel = date.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-
-    if (date.toDateString() === now.toDateString()) {
-      return `Today at ${timeLabel}`;
-    }
-    if (date.toDateString() === tomorrow.toDateString()) {
-      return `Tomorrow at ${timeLabel}`;
-    }
-
-    return `${date.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    })} at ${timeLabel}`;
-  }
 
   // Refresh tasks from storage (initial load / explicit reloads only)
   function loadTasksFromStorage(reason: "initial" | "reload" | "external" = "initial") {
@@ -87,70 +63,10 @@
   });
   onDestroy(() => {
     window.removeEventListener("recurring-task-refresh", refreshHandler);
-    pendingCompletions.forEach(({ timeoutId }) => {
-      window.clearTimeout(timeoutId);
-    });
-    pendingCompletions.clear();
-    completionLocks.clear();
   });
 
   async function handleTaskDone(task: Task) {
-    if (completionLocks.has(task.id)) {
-      toast.info(`Completion already in progress for "${task.name}".`);
-      return;
-    }
-    if (pendingCompletions.has(task.id)) {
-      toast.info(`Completion already pending for "${task.name}".`);
-      return;
-    }
-
-    completionLocks.add(task.id);
-    const snapshot = JSON.parse(JSON.stringify(task)) as Task;
-    const nextTasks = updateTaskById(allTasks, task.id, (current) => {
-      const nextTask = { ...current };
-      recordCompletion(nextTask);
-      const nextDue = recurrenceEngine.calculateNext(new Date(nextTask.dueAt), nextTask.frequency);
-      nextTask.dueAt = nextDue.toISOString();
-      return nextTask;
-    });
-
-    allTasks = nextTasks;
-    const updatedTask = nextTasks.find((item) => item.id === task.id);
-    const nextDueLabel = updatedTask ? formatNextDueLabel(new Date(updatedTask.dueAt)) : "soon";
-    const undoTimeout = window.setTimeout(async () => {
-      pendingCompletions.delete(task.id);
-      try {
-        await eventService.emitTaskEvent("task.completed", task);
-        await scheduler.markTaskDone(task.id);
-      } catch (err) {
-        allTasks = updateTaskById(allTasks, task.id, () => snapshot);
-        toast.error("Failed to mark task as done: " + err);
-        loadTasksFromStorage("external");
-      } finally {
-        completionLocks.delete(task.id);
-      }
-    }, 5000);
-
-    const undoCompletion = () => {
-      window.clearTimeout(undoTimeout);
-      pendingCompletions.delete(task.id);
-      completionLocks.delete(task.id);
-      allTasks = updateTaskById(allTasks, task.id, () => snapshot);
-      toast.info(`Undo: "${task.name}" restored`);
-    };
-
-    pendingCompletions.set(task.id, { timeoutId: undoTimeout, snapshot });
-
-    showToast({
-      message: `Task "${task.name}" completed. Next: ${nextDueLabel}`,
-      type: "success",
-      duration: 5000,
-      actionLabel: "Undo",
-      onAction: undoCompletion,
-      showCountdown: true,
-    });
-
-    return;
+    pluginEventBus.emit("task:complete", { taskId: task.id });
   }
 
   async function handleTaskDelay(task: Task) {
