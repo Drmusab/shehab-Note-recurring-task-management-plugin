@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { TaskStorage } from "@/core/storage/TaskStorage";
+  import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
   import { createTask } from "@/core/models/Task";
   import { createDefaultFrequency, isValidFrequency } from "@/core/models/Frequency";
   import { toast } from "@/utils/notifications";
@@ -13,12 +13,12 @@
   }
 
   interface Props {
-    storage: TaskStorage;
+    repository: TaskRepositoryProvider;
     onClose: () => void;
     prefill?: Prefill;
   }
 
-  let { storage, onClose, prefill }: Props = $props();
+  let { repository, onClose, prefill }: Props = $props();
 
   // Initialize with prefill value - it's used once at component creation
   let name = $state(prefill?.suggestedName ?? "");
@@ -70,7 +70,7 @@
 
     isSaving = true;
     try {
-      await storage.saveTask(task);
+      await repository.saveTask(task);
       toast.success(`Task "${task.name}" created`);
       window.dispatchEvent(new CustomEvent("recurring-task-refresh"));
       onClose();

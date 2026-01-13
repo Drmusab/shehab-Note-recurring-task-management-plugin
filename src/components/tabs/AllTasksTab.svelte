@@ -8,13 +8,21 @@
     onEdit: (task: Task) => void;
     onDelete: (task: Task) => void;
     onToggleEnabled: (task: Task) => void;
+    onBulkEnable: (taskIds: string[]) => void;
+    onBulkDisable: (taskIds: string[]) => void;
+    onBulkDelete: (taskIds: string[]) => void;
     onCreate: () => void;
   }
 
-  let { tasks, onEdit, onDelete, onToggleEnabled, onCreate }: Props = $props();
+  let { tasks, onEdit, onDelete, onToggleEnabled, onBulkEnable, onBulkDisable, onBulkDelete, onCreate }: Props = $props();
 
   let confirmingDelete: Task | null = $state(null);
+  let confirmingBulkDelete = $state(false);
   let searchQuery = $state("");
+  let selectedTaskIds = $state<Set<string>>(new Set());
+  let focusedRowIndex = $state(0);
+  let rowRefs = $state<HTMLTableRowElement[]>([]);
+  let selectAllCheckbox: HTMLInputElement | null = $state(null);
 
   const sortedTasks = $derived(
     [...tasks].sort(
@@ -40,6 +48,35 @@
       return haystack.includes(query);
     });
   });
+  const visibleTaskIds = $derived(filteredTasks.map((task) => task.id));
+  const hasSelection = $derived(selectedTaskIds.size > 0);
+  const allVisibleSelected = $derived(
+    filteredTasks.length > 0 && filteredTasks.every((task) => selectedTaskIds.has(task.id))
+  );
+  const someVisibleSelected = $derived(
+    filteredTasks.some((task) => selectedTaskIds.has(task.id)) && !allVisibleSelected
+  );
+
+  $effect(() => {
+    const nextSelection = new Set(
+      [...selectedTaskIds].filter((taskId) => tasks.some((task) => task.id === taskId))
+    );
+    if (nextSelection.size !== selectedTaskIds.size) {
+      selectedTaskIds = nextSelection;
+    }
+  });
+
+  $effect(() => {
+    if (selectAllCheckbox) {
+      selectAllCheckbox.indeterminate = someVisibleSelected;
+    }
+  });
+
+  $effect(() => {
+    if (focusedRowIndex >= filteredTasks.length) {
+      focusedRowIndex = Math.max(0, filteredTasks.length - 1);
+    }
+  });
 
   function requestDelete(task: Task) {
     confirmingDelete = task;
@@ -54,6 +91,65 @@
 
   function cancelDelete() {
     confirmingDelete = null;
+  }
+
+  function toggleSelection(taskId: string) {
+    const nextSelection = new Set(selectedTaskIds);
+    if (nextSelection.has(taskId)) {
+      nextSelection.delete(taskId);
+    } else {
+      nextSelection.add(taskId);
+    }
+    selectedTaskIds = nextSelection;
+  }
+
+  function toggleSelectAll() {
+    const nextSelection = new Set(selectedTaskIds);
+    if (allVisibleSelected) {
+      visibleTaskIds.forEach((taskId) => nextSelection.delete(taskId));
+    } else {
+      visibleTaskIds.forEach((taskId) => nextSelection.add(taskId));
+    }
+    selectedTaskIds = nextSelection;
+  }
+
+  function focusRowAt(index: number) {
+    if (filteredTasks.length === 0) {
+      return;
+    }
+    const clampedIndex = Math.max(0, Math.min(index, filteredTasks.length - 1));
+    focusedRowIndex = clampedIndex;
+    rowRefs[clampedIndex]?.focus();
+  }
+
+  function handleRowKeydown(event: KeyboardEvent, index: number) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusRowAt(index + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusRowAt(index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusRowAt(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusRowAt(filteredTasks.length - 1);
+    }
+  }
+
+  function confirmBulkDelete() {
+    if (selectedTaskIds.size === 0) {
+      confirmingBulkDelete = false;
+      return;
+    }
+    onBulkDelete([...selectedTaskIds]);
+    selectedTaskIds = new Set();
+    confirmingBulkDelete = false;
+  }
+
+  function cancelBulkDelete() {
+    confirmingBulkDelete = false;
   }
 
   function getFrequencyLabel(task: Task): string {
@@ -94,6 +190,34 @@
   </div>
 
   <div class="all-tasks-tab__content">
+    <div class="all-tasks-tab__bulk">
+      <div class="all-tasks-tab__bulk-info">
+        {selectedTaskIds.size} selected
+      </div>
+      <div class="all-tasks-tab__bulk-actions">
+        <button
+          class="all-tasks-tab__bulk-btn"
+          onclick={() => onBulkEnable([...selectedTaskIds])}
+          disabled={!hasSelection}
+        >
+          Enable
+        </button>
+        <button
+          class="all-tasks-tab__bulk-btn"
+          onclick={() => onBulkDisable([...selectedTaskIds])}
+          disabled={!hasSelection}
+        >
+          Disable
+        </button>
+        <button
+          class="all-tasks-tab__bulk-btn all-tasks-tab__bulk-btn--danger"
+          onclick={() => (confirmingBulkDelete = true)}
+          disabled={!hasSelection}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
     {#if sortedTasks.length === 0}
       <div class="all-tasks-tab__empty">
         <p>No recurring tasks yet.</p>
@@ -114,6 +238,17 @@
           <table class="all-tasks-tab__table">
             <thead>
               <tr>
+                <th class="all-tasks-tab__select-col">
+                  <input
+                    class="all-tasks-tab__select-all"
+                    type="checkbox"
+                    aria-label="Select all visible tasks"
+                    bind:this={selectAllCheckbox}
+                    checked={allVisibleSelected}
+                    onclick={toggleSelectAll}
+                    disabled={filteredTasks.length === 0}
+                  />
+                </th>
                 <th>Task Name</th>
                 <th>Next Due</th>
                 <th>Frequency</th>
@@ -122,8 +257,23 @@
               </tr>
             </thead>
             <tbody>
-              {#each filteredTasks as task (task.id)}
-                <tr class={task.enabled ? "" : "disabled"}>
+              {#each filteredTasks as task, index (task.id)}
+                <tr
+                  class={task.enabled ? "" : "disabled"}
+                  tabindex={index === focusedRowIndex ? 0 : -1}
+                  bind:this={rowRefs[index]}
+                  onkeydown={(event) => handleRowKeydown(event, index)}
+                  onfocus={() => (focusedRowIndex = index)}
+                  aria-selected={selectedTaskIds.has(task.id)}
+                >
+                  <td class="all-tasks-tab__select-col">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${task.name}`}
+                      checked={selectedTaskIds.has(task.id)}
+                      onclick={() => toggleSelection(task.id)}
+                    />
+                  </td>
                   <td class="task-name">{task.name}</td>
                   <td>{formatDateTime(new Date(task.dueAt))}</td>
                   <td>{getFrequencyLabel(task)}</td>
@@ -173,6 +323,19 @@
       <div class="delete-confirm-actions">
         <button class="btn-cancel" onclick={cancelDelete}>Cancel</button>
         <button class="btn-delete" onclick={confirmDelete}>Delete</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if confirmingBulkDelete}
+  <div class="delete-confirm-overlay">
+    <div class="delete-confirm-dialog">
+      <h3>Delete Selected Tasks?</h3>
+      <p>Are you sure you want to delete {selectedTaskIds.size} task{selectedTaskIds.size === 1 ? "" : "s"}? This action cannot be undone.</p>
+      <div class="delete-confirm-actions">
+        <button class="btn-cancel" onclick={cancelBulkDelete}>Cancel</button>
+        <button class="btn-delete" onclick={confirmBulkDelete}>Delete</button>
       </div>
     </div>
   </div>
@@ -260,6 +423,47 @@
     overflow-x: auto;
   }
 
+  .all-tasks-tab__bulk {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    color: var(--b3-theme-on-surface-light);
+    font-size: 13px;
+  }
+
+  .all-tasks-tab__bulk-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .all-tasks-tab__bulk-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--b3-border-color);
+    background: var(--b3-theme-surface);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--b3-theme-on-surface);
+    transition: background 0.2s;
+  }
+
+  .all-tasks-tab__bulk-btn:hover:enabled {
+    background: var(--b3-theme-surface-lighter);
+  }
+
+  .all-tasks-tab__bulk-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .all-tasks-tab__bulk-btn--danger {
+    border-color: var(--b3-theme-error);
+    color: var(--b3-theme-error);
+  }
+
   .all-tasks-tab__empty {
     text-align: center;
     padding: 60px 20px;
@@ -306,6 +510,11 @@
     border-bottom: 1px solid var(--b3-border-color);
   }
 
+  .all-tasks-tab__table tr:focus {
+    outline: 2px solid var(--b3-theme-primary);
+    outline-offset: -2px;
+  }
+
   .all-tasks-tab__table tr.disabled td {
     opacity: 0.5;
   }
@@ -317,6 +526,17 @@
   .task-actions {
     display: flex;
     gap: 8px;
+  }
+
+  .all-tasks-tab__select-col {
+    width: 40px;
+    text-align: center;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .all-tasks-tab__select-all {
+    cursor: pointer;
   }
 
   .task-action-btn {

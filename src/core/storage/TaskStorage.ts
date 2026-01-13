@@ -259,6 +259,10 @@ export class TaskStorage implements TaskStorageProvider {
     if (task.linkedBlockId) {
       await this.syncTaskToBlockAttrs(task);
     }
+
+    if (previousBlockId && previousBlockId !== task.linkedBlockId) {
+      await this.clearBlockAttrs(previousBlockId);
+    }
   }
 
   /**
@@ -266,7 +270,27 @@ export class TaskStorage implements TaskStorageProvider {
    * This ensures task information persists even if plugin data is lost
    */
   private async syncTaskToBlockAttrs(task: Task): Promise<void> {
-    if (!task.linkedBlockId || !this.blockAttrSyncEnabled) {
+    if (!task.linkedBlockId) {
+      return;
+    }
+
+    await this.updateBlockAttrs(task.linkedBlockId, {
+      [BLOCK_ATTR_TASK_ID]: task.id,
+      [BLOCK_ATTR_TASK_DUE]: task.dueAt,
+      [BLOCK_ATTR_TASK_ENABLED]: task.enabled ? "true" : "false",
+    });
+  }
+
+  private async clearBlockAttrs(blockId: string): Promise<void> {
+    await this.updateBlockAttrs(blockId, {
+      [BLOCK_ATTR_TASK_ID]: "",
+      [BLOCK_ATTR_TASK_DUE]: "",
+      [BLOCK_ATTR_TASK_ENABLED]: "",
+    });
+  }
+
+  private async updateBlockAttrs(blockId: string, attrs: Record<string, string>): Promise<void> {
+    if (!this.blockAttrSyncEnabled) {
       return;
     }
 
@@ -282,11 +306,7 @@ export class TaskStorage implements TaskStorageProvider {
     }
 
     try {
-      await this.blockApi.setBlockAttrs(task.linkedBlockId, {
-        [BLOCK_ATTR_TASK_ID]: task.id,
-        [BLOCK_ATTR_TASK_DUE]: task.dueAt,
-        [BLOCK_ATTR_TASK_ENABLED]: task.enabled ? "true" : "false",
-      });
+      await this.blockApi.setBlockAttrs(blockId, attrs);
     } catch (err) {
       if (err instanceof SiYuanCapabilityError || err instanceof SiYuanApiExecutionError) {
         reportSiYuanApiIssue({
@@ -317,6 +337,7 @@ export class TaskStorage implements TaskStorageProvider {
     // Remove from block index if task has linkedBlockId
     if (task?.linkedBlockId) {
       this.blockIndex.delete(task.linkedBlockId);
+      await this.clearBlockAttrs(task.linkedBlockId);
     }
     this.taskBlockIndex.delete(id);
 

@@ -59,8 +59,8 @@ export function registerBlockMenu(plugin: Plugin): void {
     try {
       const manager = TaskManager.getInstance();
       if (manager && manager.isReady()) {
-        const storage = manager.getStorage();
-        const existingTask = storage.getTaskByBlockId(blockId);
+        const repository = manager.getRepository();
+        const existingTask = repository.getTaskByBlockId(blockId);
         
         if (existingTask) {
           // Add separator

@@ -3,7 +3,7 @@
  */
 
 import type { Plugin } from "siyuan";
-import type { TaskStorage } from "@/core/storage/TaskStorage";
+import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
 import { pluginEventBus } from "@/core/events/PluginEventBus";
 import { TOPBAR_ICON_ID } from "@/utils/constants";
 import { isToday } from "@/utils/date";
@@ -11,13 +11,13 @@ import * as logger from "@/utils/logger";
 
 export class TopbarMenu {
   private plugin: Plugin;
-  private storage: TaskStorage;
+  private repository: TaskRepositoryProvider;
   private topbarElement: HTMLElement | null = null;
   private updateIntervalId: number | null = null;
 
-  constructor(plugin: Plugin, storage: TaskStorage) {
+  constructor(plugin: Plugin, repository: TaskRepositoryProvider) {
     this.plugin = plugin;
-    this.storage = storage;
+    this.repository = repository;
   }
 
   /**
@@ -71,7 +71,7 @@ export class TopbarMenu {
       return;
     }
 
-    const tasks = this.storage.getTodayAndOverdueTasks();
+    const tasks = this.repository.getTodayAndOverdueTasks();
     const overdueCount = tasks.filter((task) => {
       const dueDate = new Date(task.dueAt);
       const now = new Date();

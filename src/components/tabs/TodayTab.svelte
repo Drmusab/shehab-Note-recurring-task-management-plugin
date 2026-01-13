@@ -18,6 +18,40 @@
       (a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
     )
   );
+
+  let focusedIndex = $state(0);
+  let cardRefs = $state<HTMLDivElement[]>([]);
+
+  $effect(() => {
+    if (focusedIndex >= sortedTasks.length) {
+      focusedIndex = Math.max(0, sortedTasks.length - 1);
+    }
+  });
+
+  function focusCardAt(index: number) {
+    if (sortedTasks.length === 0) {
+      return;
+    }
+    const clampedIndex = Math.max(0, Math.min(index, sortedTasks.length - 1));
+    focusedIndex = clampedIndex;
+    cardRefs[clampedIndex]?.focus();
+  }
+
+  function handleCardKeydown(event: KeyboardEvent, index: number) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusCardAt(index + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusCardAt(index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusCardAt(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusCardAt(sortedTasks.length - 1);
+    }
+  }
 </script>
 
 <div class="today-tab">
@@ -35,8 +69,16 @@
         <p class="today-tab__empty-subtitle">You're all caught up.</p>
       </div>
     {:else}
-      {#each sortedTasks as task (task.id)}
-        <TaskCard {task} {onDone} {onDelay} {onSkip} {onEdit} {timezoneHandler} />
+      {#each sortedTasks as task, index (task.id)}
+        <div
+          class="today-tab__card-wrapper"
+          tabindex={index === focusedIndex ? 0 : -1}
+          bind:this={cardRefs[index]}
+          onkeydown={(event) => handleCardKeydown(event, index)}
+          onfocus={() => (focusedIndex = index)}
+        >
+          <TaskCard {task} {onDone} {onDelay} {onSkip} {onEdit} {timezoneHandler} />
+        </div>
       {/each}
     {/if}
   </div>
@@ -66,6 +108,12 @@
 
   .today-tab__content {
     max-width: 800px;
+  }
+
+  .today-tab__card-wrapper:focus {
+    outline: 2px solid var(--b3-theme-primary);
+    outline-offset: 4px;
+    border-radius: 10px;
   }
 
   .today-tab__empty {

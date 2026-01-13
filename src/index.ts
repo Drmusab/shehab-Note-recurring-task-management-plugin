@@ -3,7 +3,7 @@ import { mount, unmount } from "svelte";
 import Dashboard from "./components/Dashboard.svelte";
 import QuickAddOverlay from "./components/cards/QuickAddOverlay.svelte";
 import type { Scheduler } from "./core/engine/Scheduler";
-import { TaskStorage } from "./core/storage/TaskStorage";
+import type { TaskRepositoryProvider } from "./core/storage/TaskRepository";
 import { MigrationManager } from "./core/storage/MigrationManager";
 import { TaskManager } from "./core/managers/TaskManager";
 import type { EventService } from "./services/EventService";
@@ -18,7 +18,7 @@ import "./index.scss";
 
 export default class RecurringTasksPlugin extends Plugin {
   private taskManager!: TaskManager;
-  private storage!: TaskStorage;
+  private repository!: TaskRepositoryProvider;
   private scheduler!: Scheduler;
   private eventService!: EventService;
   private migrationManager!: MigrationManager;
@@ -51,7 +51,7 @@ export default class RecurringTasksPlugin extends Plugin {
     this.taskManager = manager;
     await this.taskManager.initialize();
 
-    this.storage = this.taskManager.getStorage();
+    this.repository = this.taskManager.getRepository();
     this.scheduler = this.taskManager.getScheduler();
     this.eventService = this.taskManager.getEventService();
 
@@ -63,13 +63,13 @@ export default class RecurringTasksPlugin extends Plugin {
     }
 
     // Register slash commands and hotkeys
-    registerCommands(this, this.storage);
+    registerCommands(this, this.repository);
 
     // Register block context menu
     registerBlockMenu(this);
 
     // Initialize topbar menu
-    this.topbarMenu = new TopbarMenu(this, this.storage);
+    this.topbarMenu = new TopbarMenu(this, this.repository);
     this.topbarMenu.init();
 
     // Add dock panel
@@ -127,7 +127,7 @@ export default class RecurringTasksPlugin extends Plugin {
       this.dashboardComponent = mount(Dashboard, {
         target: this.dockEl,
         props: {
-          storage: this.storage,
+          repository: this.repository,
           scheduler: this.scheduler,
           eventService: this.eventService,
         },
@@ -231,7 +231,7 @@ export default class RecurringTasksPlugin extends Plugin {
   };
 
   private async handleCompleteTask(taskId: string): Promise<void> {
-    const task = this.storage.getTask(taskId);
+    const task = this.repository.getTask(taskId);
     if (task) {
       if (this.pendingCompletionTimeouts.has(taskId)) {
         toast.info(`Completion already pending for "${task.name}".`);
@@ -293,7 +293,7 @@ export default class RecurringTasksPlugin extends Plugin {
   };
 
   private async handleSnoozeTask(taskId: string, minutes: number): Promise<void> {
-    const task = this.storage.getTask(taskId);
+    const task = this.repository.getTask(taskId);
     if (task) {
       await this.eventService.handleTaskSnoozed(task);
       await this.scheduler.delayTask(taskId, minutes);
@@ -321,7 +321,7 @@ export default class RecurringTasksPlugin extends Plugin {
     this.quickAddComponent = mount(QuickAddOverlay, {
       target: this.quickAddContainer,
       props: {
-        storage: this.storage,
+        repository: this.repository,
         prefill,
         onClose: () => this.closeQuickAdd(),
       },

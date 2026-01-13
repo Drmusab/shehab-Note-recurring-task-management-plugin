@@ -93,4 +93,48 @@ describe("TaskStorage - Block Attribute Sync", () => {
     );
     expect(warnEntry).toBeDefined();
   });
+
+  it("clears block attributes when task is deleted", async () => {
+    const setBlockAttrs = vi.fn().mockResolvedValue(undefined);
+    const adapter = new SiYuanApiAdapter({ setBlockAttrs } as any);
+    const storage = new TaskStorage(mockPlugin, adapter);
+    await storage.init();
+
+    const task = createTask("Task to delete", frequency);
+    task.linkedBlockId = "block-delete";
+
+    await storage.saveTask(task);
+    await storage.deleteTask(task.id);
+
+    expect(setBlockAttrs).toHaveBeenCalledWith("block-delete", {
+      [BLOCK_ATTR_TASK_ID]: "",
+      [BLOCK_ATTR_TASK_DUE]: "",
+      [BLOCK_ATTR_TASK_ENABLED]: "",
+    });
+  });
+
+  it("clears block attributes when relinking a task", async () => {
+    const setBlockAttrs = vi.fn().mockResolvedValue(undefined);
+    const adapter = new SiYuanApiAdapter({ setBlockAttrs } as any);
+    const storage = new TaskStorage(mockPlugin, adapter);
+    await storage.init();
+
+    const task = createTask("Task to relink", frequency);
+    task.linkedBlockId = "block-old";
+    await storage.saveTask(task);
+
+    const relinkedTask = { ...task, linkedBlockId: "block-new" };
+    await storage.saveTask(relinkedTask);
+
+    expect(setBlockAttrs).toHaveBeenCalledWith("block-old", {
+      [BLOCK_ATTR_TASK_ID]: "",
+      [BLOCK_ATTR_TASK_DUE]: "",
+      [BLOCK_ATTR_TASK_ENABLED]: "",
+    });
+    expect(setBlockAttrs).toHaveBeenCalledWith("block-new", {
+      [BLOCK_ATTR_TASK_ID]: relinkedTask.id,
+      [BLOCK_ATTR_TASK_DUE]: relinkedTask.dueAt,
+      [BLOCK_ATTR_TASK_ENABLED]: "true",
+    });
+  });
 });

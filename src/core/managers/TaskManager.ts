@@ -1,5 +1,6 @@
 import type { Plugin } from "siyuan";
 import { TaskStorage } from "@/core/storage/TaskStorage";
+import { TaskRepository, type TaskRepositoryProvider } from "@/core/storage/TaskRepository";
 import { Scheduler } from "@/core/engine/Scheduler";
 import { EventService } from "@/services/EventService";
 import { SCHEDULER_INTERVAL_MS } from "@/utils/constants";
@@ -16,6 +17,7 @@ export class TaskManager {
   
   // Core services
   private storage!: TaskStorage;
+  private repository!: TaskRepositoryProvider;
   private scheduler!: Scheduler;
   private eventService!: EventService;
 
@@ -50,6 +52,7 @@ export class TaskManager {
     // Initialize storage
     this.storage = new TaskStorage(this.plugin);
     await this.storage.init();
+    this.repository = new TaskRepository(this.storage);
 
     // Initialize event service
     this.eventService = new EventService(this.plugin);
@@ -119,6 +122,14 @@ export class TaskManager {
   public getStorage(): TaskStorage {
     this.ensureInitialized();
     return this.storage;
+  }
+
+  /**
+   * Get the task repository abstraction
+   */
+  public getRepository(): TaskRepositoryProvider {
+    this.ensureInitialized();
+    return this.repository;
   }
 
   /**

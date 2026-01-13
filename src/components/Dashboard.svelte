@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Task } from "@/core/models/Task";
   import { recordCompletion, recordMiss } from "@/core/models/Task";
-  import type { TaskStorage } from "@/core/storage/TaskStorage";
+  import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
   import type { Scheduler } from "@/core/engine/Scheduler";
   import type { EventService } from "@/services/EventService";
   import { showToast, toast } from "@/utils/notifications";
@@ -21,12 +21,12 @@
   import Settings from "./settings/Settings.svelte";
 
   interface Props {
-    storage: TaskStorage;
+    repository: TaskRepositoryProvider;
     scheduler: Scheduler;
     eventService: EventService;
   }
 
-  let { storage, scheduler, eventService }: Props = $props();
+  let { repository, scheduler, eventService }: Props = $props();
 
   // Get timezone handler and recurrence engine from scheduler
   // Access these in component setup - they're stable references
@@ -72,7 +72,7 @@
   // Refresh tasks from storage (initial load / explicit reloads only)
   function loadTasksFromStorage(reason: "initial" | "reload" | "external" = "initial") {
     // Shallow copy keeps UI state decoupled from storage while avoiding deep clones.
-    allTasks = storage.getAllTasks().map((task) => ({ ...task }));
+    allTasks = repository.getAllTasks().map((task) => ({ ...task }));
     if (reason !== "initial") {
       toast.info("Task list reloaded");
     }
@@ -196,7 +196,7 @@
     editingTask = undefined;
     toast.success(`Task "${task.name}" saved successfully`);
 
-    void storage.saveTask(nextTask).catch((err) => {
+    void repository.saveTask(nextTask).catch((err) => {
       toast.error("Failed to save task: " + err);
       loadTasksFromStorage("external");
     });
@@ -208,7 +208,7 @@
     
     const undoTimeout = window.setTimeout(async () => {
       try {
-        await storage.deleteTask(task.id);
+        await repository.deleteTask(task.id);
       } catch (err) {
         allTasks = previousTasks;
         toast.error("Failed to delete task: " + err);
@@ -238,9 +238,67 @@
     allTasks = nextTasks;
     toast.info(`Task ${nextEnabled ? "enabled" : "disabled"}`);
 
-    void storage.saveTask(nextTask).catch((err) => {
+    void repository.saveTask(nextTask).catch((err) => {
       toast.error("Failed to update task: " + err);
       loadTasksFromStorage("external");
+    });
+  }
+
+  async function handleBulkEnabledUpdate(taskIds: string[], enabled: boolean) {
+    if (taskIds.length === 0) {
+      return;
+    }
+
+    const previousTasks = allTasks;
+    const taskIdSet = new Set(taskIds);
+    const nextTasks = allTasks.map((task) =>
+      taskIdSet.has(task.id) ? { ...task, enabled } : task
+    );
+
+    allTasks = nextTasks;
+    toast.info(`${enabled ? "Enabled" : "Disabled"} ${taskIds.length} task${taskIds.length === 1 ? "" : "s"}`);
+
+    try {
+      const tasksToSave = nextTasks.filter((task) => taskIdSet.has(task.id));
+      await Promise.all(tasksToSave.map((task) => repository.saveTask(task)));
+    } catch (err) {
+      allTasks = previousTasks;
+      toast.error(`Failed to ${enabled ? "enable" : "disable"} tasks: ${err}`);
+      loadTasksFromStorage("external");
+    }
+  }
+
+  async function handleBulkDelete(taskIds: string[]) {
+    if (taskIds.length === 0) {
+      return;
+    }
+
+    const previousTasks = allTasks;
+    const taskIdSet = new Set(taskIds);
+    const tasksToDelete = allTasks.filter((task) => taskIdSet.has(task.id));
+    allTasks = allTasks.filter((task) => !taskIdSet.has(task.id));
+
+    const undoTimeout = window.setTimeout(async () => {
+      try {
+        await Promise.all(tasksToDelete.map((task) => repository.deleteTask(task.id)));
+      } catch (err) {
+        allTasks = previousTasks;
+        toast.error("Failed to delete tasks: " + err);
+        loadTasksFromStorage("external");
+      }
+    }, 5000);
+
+    showToast({
+      message: `${tasksToDelete.length} task${tasksToDelete.length === 1 ? "" : "s"} deleted`,
+      type: "success",
+      duration: 5000,
+      actionLabel: "Undo",
+      onAction: () => {
+        window.clearTimeout(undoTimeout);
+        allTasks = previousTasks;
+        toast.info("Bulk delete undone");
+      },
+      showCountdown: true,
     });
   }
 
@@ -355,6 +413,9 @@
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
           onToggleEnabled={handleToggleEnabled}
+          onBulkEnable={(taskIds) => handleBulkEnabledUpdate(taskIds, true)}
+          onBulkDisable={(taskIds) => handleBulkEnabledUpdate(taskIds, false)}
+          onBulkDelete={handleBulkDelete}
           onCreate={handleCreateTask}
         />
       {:else if activeTab === "timeline"}

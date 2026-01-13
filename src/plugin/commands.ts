@@ -3,7 +3,7 @@
  */
 
 import type { Plugin } from "siyuan";
-import type { TaskStorage } from "@/core/storage/TaskStorage";
+import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
 import { createTask } from "@/core/models/Task";
 import { pluginEventBus } from "@/core/events/PluginEventBus";
 import * as logger from "@/utils/logger";
@@ -11,7 +11,7 @@ import * as logger from "@/utils/logger";
 /**
  * Register slash commands and keyboard shortcuts
  */
-export function registerCommands(plugin: Plugin, storage: TaskStorage): void {
+export function registerCommands(plugin: Plugin, repository: TaskRepositoryProvider): void {
   // Slash command: /task or /recurring - Create recurring task from selection
   plugin.addCommand({
     langKey: "createRecurringTask",
@@ -36,7 +36,7 @@ export function registerCommands(plugin: Plugin, storage: TaskStorage): void {
     langKey: "quickCompleteNextTask",
     hotkey: "⌘⇧D",
     callback: async () => {
-      await quickCompleteNextTask(storage);
+      await quickCompleteNextTask(repository);
     },
   });
 
@@ -64,9 +64,9 @@ function dispatchCreateTaskEvent(): void {
 /**
  * Quick complete the next due task
  */
-async function quickCompleteNextTask(storage: TaskStorage): Promise<void> {
+async function quickCompleteNextTask(repository: TaskRepositoryProvider): Promise<void> {
   try {
-    const tasks = storage.getTodayAndOverdueTasks();
+    const tasks = repository.getTodayAndOverdueTasks();
     if (tasks.length === 0) {
       logger.info("No tasks due today");
       return;
