@@ -4,17 +4,20 @@ import { createTask } from "../core/models/Task";
 import { MISSED_GRACE_PERIOD_MS } from "../utils/constants";
 
 describe("Scheduler", () => {
-  it("fires due task once per occurrence", () => {
+  it("fires due task once per occurrence", async () => {
+    // Create a task that's due now (in the past by 1 second to ensure it's detected as due)
+    const dueAt = new Date(Date.now() - 1000);
     const task = createTask(
       "Test task",
       { type: "daily", interval: 1, time: "09:00" },
-      new Date()
+      dueAt
     );
     task.enabled = true;
 
     const storage = {
       getEnabledTasks: () => [task],
       getTask: () => task,
+      getTasksDueOnOrBefore: () => [task],
       saveTask: vi.fn(),
     };
 
@@ -25,7 +28,11 @@ describe("Scheduler", () => {
     scheduler.on("task:due", () => {
       dueCount += 1;
     });
+    
     scheduler.start();
+    
+    // Wait for start() to complete (it's async due to ensureEmittedStateLoaded)
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(dueCount).toBe(1);
 
@@ -46,6 +53,7 @@ describe("Scheduler", () => {
     const storage = {
       getEnabledTasks: () => [task],
       getTask: () => task,
+      getTasksDueOnOrBefore: () => [task],
       saveTask: vi.fn(),
     };
 
@@ -69,6 +77,7 @@ describe("Scheduler", () => {
     const storage = {
       getEnabledTasks: () => [task],
       getTask: () => task,
+      getTasksDueOnOrBefore: () => [task],
       saveTask: vi.fn(),
     };
 

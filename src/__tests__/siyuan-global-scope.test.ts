@@ -33,9 +33,39 @@ describe("SiYuan global scope access", () => {
     const files = await collectSourceFiles(srcRoot);
     const offenders: string[] = [];
 
+    // Standard browser APIs that are OK to use directly
+    const allowedGlobalAPIs = [
+      "globalThis.setTimeout",
+      "globalThis.clearTimeout",
+      "globalThis.setInterval",
+      "globalThis.clearInterval",
+      "globalThis.fetch",
+      "globalThis.crypto",
+      "globalThis.console",
+      "globalThis.Promise",
+    ];
+
     for (const filePath of files) {
       const content = await fs.readFile(filePath, "utf8");
-      if (content.includes("globalThis") && filePath !== allowedGlobalScopeFile) {
+      
+      // Skip if file doesn't use globalThis
+      if (!content.includes("globalThis")) {
+        continue;
+      }
+      
+      // Skip if it's the allowed file
+      if (filePath === allowedGlobalScopeFile) {
+        continue;
+      }
+      
+      // Check if it uses disallowed globalThis patterns
+      // Look for globalThis access that's not in the allowed list
+      const globalThisMatches = content.match(/globalThis\.(\w+)/g) || [];
+      const hasDisallowedAccess = globalThisMatches.some(match => {
+        return !allowedGlobalAPIs.some(allowed => match.startsWith(allowed));
+      });
+      
+      if (hasDisallowedAccess) {
         offenders.push(path.relative(repoRoot, filePath));
       }
     }

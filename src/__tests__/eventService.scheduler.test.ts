@@ -46,6 +46,7 @@ describe("EventService scheduler integration", () => {
     const storage = {
       getEnabledTasks: () => [task],
       getTask: () => task,
+      getTasksDueOnOrBefore: () => [task],
       saveTask: vi.fn(),
     };
 
@@ -81,6 +82,7 @@ describe("EventService scheduler integration", () => {
     const storage = {
       getEnabledTasks: () => [task],
       getTask: () => task,
+      getTasksDueOnOrBefore: () => [task],
       saveTask: vi.fn(),
     };
 

@@ -101,7 +101,7 @@ export default class RecurringTasksPlugin extends Plugin {
     logger.info("Unloading Recurring Tasks Plugin");
     
     this.pendingCompletionTimeouts.forEach((timeoutId) => {
-      window.clearTimeout(timeoutId);
+      globalThis.clearTimeout(timeoutId);
     });
     this.pendingCompletionTimeouts.clear();
 
@@ -238,7 +238,7 @@ export default class RecurringTasksPlugin extends Plugin {
         return;
       }
 
-      const timeoutId = window.setTimeout(async () => {
+      const timeoutId = globalThis.setTimeout(async () => {
         this.pendingCompletionTimeouts.delete(taskId);
         try {
           await this.eventService.handleTaskCompleted(task);
@@ -261,7 +261,7 @@ export default class RecurringTasksPlugin extends Plugin {
       const undoCompletion = () => {
         const pending = this.pendingCompletionTimeouts.get(taskId);
         if (pending) {
-          window.clearTimeout(pending);
+          globalThis.clearTimeout(pending);
           this.pendingCompletionTimeouts.delete(taskId);
           toast.info(`Undo: "${task.name}" restored`);
         }

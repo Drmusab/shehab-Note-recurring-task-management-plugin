@@ -79,10 +79,11 @@ export class Scheduler {
         const now = Date.now();
         const intervalMs = this.intervalMs > 0 ? this.intervalMs : SCHEDULER_INTERVAL_MS;
         const delay = intervalMs - (now % intervalMs);
-        this.intervalId = window.setTimeout(() => {
+        // Cast to number for cross-environment compatibility (NodeJS.Timeout vs number)
+        this.intervalId = globalThis.setTimeout(() => {
           this.checkDueTasks();
           scheduleNextTick();
-        }, delay);
+        }, delay) as number;
       };
 
       // Use a self-correcting timeout to prevent long-uptime drift.
@@ -101,7 +102,7 @@ export class Scheduler {
    */
   stop(): void {
     if (this.intervalId !== null) {
-      window.clearTimeout(this.intervalId);
+      globalThis.clearTimeout(this.intervalId);
       this.intervalId = null;
     }
     this.isRunning = false;
@@ -542,10 +543,11 @@ export class Scheduler {
       return;
     }
 
-    this.persistTimeoutId = window.setTimeout(() => {
+    // Cast to number for cross-environment compatibility (NodeJS.Timeout vs number)
+    this.persistTimeoutId = globalThis.setTimeout(() => {
       this.persistTimeoutId = null;
       void this.persistEmittedState();
-    }, this.EMITTED_SAVE_DEBOUNCE_MS);
+    }, this.EMITTED_SAVE_DEBOUNCE_MS) as number;
   }
 
   private async persistEmittedState(): Promise<void> {
