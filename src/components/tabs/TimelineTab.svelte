@@ -23,7 +23,29 @@
     tasks: { task: Task; occurrence: Date }[];
   }
 
-  const timelineData = $derived.by(() => {
+  function buildFrequencySignature(task: Task): string {
+    const { frequency } = task;
+    if (frequency.type === "weekly") {
+      const weekdays = [...frequency.weekdays].sort((a, b) => a - b).join(",");
+      return `weekly:${frequency.interval}:${frequency.time ?? ""}:${weekdays}`;
+    }
+    if (frequency.type === "monthly") {
+      return `monthly:${frequency.interval}:${frequency.time ?? ""}:${frequency.dayOfMonth}`;
+    }
+    if (frequency.type === "yearly") {
+      return `yearly:${frequency.interval}:${frequency.time ?? ""}:${frequency.month}:${frequency.dayOfMonth}`;
+    }
+    return `daily:${frequency.interval}:${frequency.time ?? ""}`;
+  }
+
+  function buildTimelineKey(tasks: Task[], days: number): string {
+    const signature = tasks
+      .map((task) => `${task.id}:${task.enabled}:${task.dueAt}:${buildFrequencySignature(task)}`)
+      .join("|");
+    return `${days}:${signature}`;
+  }
+
+  function computeTimeline(tasks: Task[], days: number): TimelineDay[] {
     const startDate = startOfDay(new Date());
     const endDate = endOfDay(addDays(startDate, days - 1));
     const msPerDay = 24 * 60 * 60 * 1000;
@@ -62,7 +84,25 @@
     }
 
     return timeline;
-  });
+  }
+
+  const timelineMemo = (() => {
+    let lastKey = "";
+    let lastValue: TimelineDay[] = [];
+    return {
+      get(nextTasks: Task[], nextDays: number): TimelineDay[] {
+        const key = buildTimelineKey(nextTasks, nextDays);
+        if (key === lastKey) {
+          return lastValue;
+        }
+        lastKey = key;
+        lastValue = computeTimeline(nextTasks, nextDays);
+        return lastValue;
+      },
+    };
+  })();
+
+  const timelineData = $derived.by(() => timelineMemo.get(tasks, days));
 
   const hasAnyTasks = $derived(
     timelineData.some((day) => day.tasks.length > 0)

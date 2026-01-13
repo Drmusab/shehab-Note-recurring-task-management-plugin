@@ -44,10 +44,16 @@ export class ArchiveTaskStore {
     this.plugin = plugin;
   }
 
+  /**
+   * Archive a single task snapshot.
+   */
   async archiveTask(task: Task): Promise<void> {
     await this.archiveTasks([task]);
   }
 
+  /**
+   * Archive multiple task snapshots.
+   */
   async archiveTasks(tasks: Task[]): Promise<void> {
     if (tasks.length === 0) {
       return;
@@ -63,6 +69,9 @@ export class ArchiveTaskStore {
     await this.saveIndex(index);
   }
 
+  /**
+   * Load archived tasks with optional filtering.
+   */
   async loadArchive(query?: ArchiveQuery): Promise<Task[]> {
     const index = await this.loadIndex();
     if (index.chunks.length === 0) {

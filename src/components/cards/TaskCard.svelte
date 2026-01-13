@@ -2,7 +2,7 @@
   import type { Task } from "@/core/models/Task";
   import { calculateTaskHealth } from "@/core/models/Task";
   import { tick } from "svelte";
-  import { fetchBlockPreview } from "@/utils/blocks";
+  import { fetchBlockEmbed, fetchBlockPreview } from "@/utils/blocks";
   import { daysBetween, formatDateTime, isOverdue, isToday } from "@/utils/date";
   import { PRIORITY_COLORS, SNOOZE_OPTIONS } from "@/utils/constants";
 
@@ -68,6 +68,7 @@
   let snoozeOptionRefs = $state<HTMLButtonElement[]>([]);
   let showBlockPreview = $state(false);
   let blockPreview = $state<string | null>(null);
+  let blockPreviewHtml = $state<string | null>(null);
   let blockPreviewLoading = $state(false);
   const blockIdLabel = $derived(() => {
     if (!task.linkedBlockId) {
@@ -93,6 +94,7 @@
 
   $effect(() => {
     blockPreview = task.linkedBlockContent ?? null;
+    blockPreviewHtml = null;
     blockPreviewLoading = false;
   });
 
@@ -171,11 +173,15 @@
 
   async function handleBlockPreviewOpen() {
     showBlockPreview = true;
-    if (!task.linkedBlockId || blockPreview || blockPreviewLoading) {
+    if (!task.linkedBlockId || blockPreviewLoading || blockPreviewHtml) {
       return;
     }
     blockPreviewLoading = true;
-    const content = await fetchBlockPreview(task.linkedBlockId);
+    const [html, content] = await Promise.all([
+      fetchBlockEmbed(task.linkedBlockId),
+      fetchBlockPreview(task.linkedBlockId),
+    ]);
+    blockPreviewHtml = html;
     blockPreview = content;
     blockPreviewLoading = false;
   }
@@ -265,6 +271,10 @@
           <div class="task-card__block-preview" role="tooltip">
             {#if blockPreviewLoading}
               Loading preview…
+            {:else if blockPreviewHtml}
+              <div class="task-card__block-preview-html">
+                {@html blockPreviewHtml}
+              </div>
             {:else if blockPreview}
               {blockPreviewText}
             {:else}
@@ -483,6 +493,11 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     z-index: 120;
     white-space: pre-wrap;
+  }
+
+  .task-card__block-preview-html {
+    font-size: 12px;
+    color: var(--b3-theme-on-surface);
   }
 
   .task-card__actions {

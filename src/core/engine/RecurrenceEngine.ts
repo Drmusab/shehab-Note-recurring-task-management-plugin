@@ -34,6 +34,11 @@ export class RecurrenceEngine {
     return Math.min(Math.max(candidate, 1), 31);
   }
 
+  private normalizeMonth(month: number | undefined, fallback: number): number {
+    const candidate = Number.isFinite(month) ? Math.floor(month as number) : fallback;
+    return Math.min(Math.max(candidate, 0), 11);
+  }
+
   /**
    * Calculate the next occurrence date based on frequency
    * @param currentDue Current due date
@@ -60,6 +65,14 @@ export class RecurrenceEngine {
         nextDate = this.calculateNextMonthly(
           currentDue,
           interval,
+          this.normalizeDayOfMonth(frequency.dayOfMonth, currentDue.getDate())
+        );
+        break;
+      case "yearly":
+        nextDate = this.calculateNextYearly(
+          currentDue,
+          interval,
+          this.normalizeMonth(frequency.month, currentDue.getMonth()),
           this.normalizeDayOfMonth(frequency.dayOfMonth, currentDue.getDate())
         );
         break;
@@ -154,6 +167,24 @@ export class RecurrenceEngine {
     const totalMonths = currentMonth + interval;
     const year = currentYear + Math.floor(totalMonths / 12);
     const month = ((totalMonths % 12) + 12) % 12;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const day = Math.min(targetDay, daysInMonth);
+    const nextDate = new Date(currentDue);
+    nextDate.setFullYear(year, month, day);
+    return nextDate;
+  }
+
+  /**
+   * Calculate next yearly occurrence
+   */
+  private calculateNextYearly(
+    currentDue: Date,
+    interval: number,
+    month: number,
+    dayOfMonth?: number
+  ): Date {
+    const targetDay = dayOfMonth ?? currentDue.getDate();
+    const year = currentDue.getFullYear() + interval;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const day = Math.min(targetDay, daysInMonth);
     const nextDate = new Date(currentDue);

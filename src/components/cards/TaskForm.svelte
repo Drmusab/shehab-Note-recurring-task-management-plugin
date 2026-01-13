@@ -6,6 +6,12 @@
   import { WEEKDAY_NAMES } from "@/utils/constants";
   import { formatDateTime } from "@/utils/date";
   import { toast } from "@/utils/notifications";
+  import {
+    createTemplateId,
+    deleteTaskTemplate,
+    loadTaskTemplates,
+    saveTaskTemplate,
+  } from "@/utils/taskTemplates";
 
   interface Props {
     task?: Task;
@@ -26,15 +32,20 @@
   let time = $state("09:00");
   let weekdays = $state<number[]>([]);
   let dayOfMonth = $state(1);
+  let month = $state(new Date().getMonth());
   let enabled = $state(true);
   let linkedBlockId = $state("");
   let priority = $state<"low" | "normal" | "high">("normal");
   let tags = $state("");
+  let templates = $state(loadTaskTemplates());
+  let selectedTemplateId = $state("");
+  let templateLabel = $state("");
   let touched = $state({
     name: false,
     dueAt: false,
     weekdays: false,
     dayOfMonth: false,
+    month: false,
   });
 
   const nameError = $derived(
@@ -51,12 +62,18 @@
       : ""
   );
   const dayOfMonthError = $derived(
-    touched.dayOfMonth && frequencyType === "monthly" && (dayOfMonth < 1 || dayOfMonth > 31)
+    touched.dayOfMonth && (frequencyType === "monthly" || frequencyType === "yearly")
+      && (dayOfMonth < 1 || dayOfMonth > 31)
       ? "Day of month must be between 1 and 31."
       : ""
   );
+  const monthError = $derived(
+    touched.month && frequencyType === "yearly" && (Number(month) < 0 || Number(month) > 11)
+      ? "Select a valid month."
+      : ""
+  );
   const hasErrors = $derived(
-    !!(nameError || dueAtError || weekdaysError || dayOfMonthError)
+    !!(nameError || dueAtError || weekdaysError || dayOfMonthError || monthError)
   );
 
   function buildFrequency(): Frequency {
@@ -76,6 +93,15 @@
         dayOfMonth,
       };
     }
+    if (frequencyType === "yearly") {
+      return {
+        type: "yearly",
+        interval,
+        time,
+        month: Number(month),
+        dayOfMonth,
+      };
+    }
     return {
       type: "daily",
       interval,
@@ -90,8 +116,12 @@
     if (frequencyType === "weekly" && weekdays.length === 0) {
       return "Select at least one weekday to preview upcoming occurrences.";
     }
-    if (frequencyType === "monthly" && (dayOfMonth < 1 || dayOfMonth > 31)) {
+    if ((frequencyType === "monthly" || frequencyType === "yearly")
+      && (dayOfMonth < 1 || dayOfMonth > 31)) {
       return "Choose a valid day of month to preview upcoming occurrences.";
+    }
+    if (frequencyType === "yearly" && (Number(month) < 0 || Number(month) > 11)) {
+      return "Choose a valid month to preview upcoming occurrences.";
     }
     return "";
   });
@@ -123,18 +153,25 @@
       time = task.frequency.time || "09:00";
       weekdays = task.frequency.type === "weekly" ? task.frequency.weekdays : [];
       dayOfMonth =
-        task.frequency.type === "monthly"
+        task.frequency.type === "monthly" || task.frequency.type === "yearly"
           ? task.frequency.dayOfMonth
           : new Date(task.dueAt).getDate();
+      month =
+        task.frequency.type === "yearly"
+          ? task.frequency.month
+          : new Date(task.dueAt).getMonth();
       enabled = task.enabled ?? true;
       linkedBlockId = task.linkedBlockId || "";
       priority = task.priority || "normal";
       tags = task.tags ? task.tags.join(", ") : "";
+      templateLabel = "";
+      selectedTemplateId = "";
       touched = {
         name: false,
         dueAt: false,
         weekdays: false,
         dayOfMonth: false,
+        month: false,
       };
     } else {
       // Reset for new task
@@ -145,15 +182,19 @@
       time = "09:00";
       weekdays = [];
       dayOfMonth = new Date().getDate();
+      month = new Date().getMonth();
       enabled = true;
       linkedBlockId = "";
       priority = "normal";
       tags = "";
+      templateLabel = "";
+      selectedTemplateId = "";
       touched = {
         name: false,
         dueAt: false,
         weekdays: false,
         dayOfMonth: false,
+        month: false,
       };
     }
   });
@@ -164,6 +205,7 @@
       dueAt: true,
       weekdays: true,
       dayOfMonth: true,
+      month: true,
     };
 
     if (hasErrors) {
@@ -214,12 +256,141 @@
 
   const weekdayNames = WEEKDAY_NAMES;
   const weekdayLabels = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  function applyTemplate(templateId: string) {
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) {
+      return;
+    }
+    name = template.name;
+    frequencyType = template.frequencyType;
+    interval = template.interval;
+    time = template.time;
+    weekdays = [...template.weekdays];
+    dayOfMonth = template.dayOfMonth;
+    month = template.month;
+    enabled = template.enabled;
+    linkedBlockId = template.linkedBlockId || "";
+    priority = template.priority;
+    tags = template.tags.join(", ");
+    touched = {
+      name: false,
+      dueAt: false,
+      weekdays: false,
+      dayOfMonth: false,
+      month: false,
+    };
+  }
+
+  function handleTemplateSelect(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    selectedTemplateId = target.value;
+    if (selectedTemplateId) {
+      applyTemplate(selectedTemplateId);
+      toast.info("Template applied.");
+    }
+  }
+
+  function handleSaveTemplate() {
+    const label = templateLabel.trim() || name.trim();
+    if (!label) {
+      toast.warning("Enter a template name or task name first.");
+      return;
+    }
+    const templateId = selectedTemplateId || createTemplateId();
+    templates = saveTaskTemplate({
+      id: templateId,
+      label,
+      name: name.trim() || label,
+      frequencyType,
+      interval,
+      time,
+      weekdays,
+      dayOfMonth,
+      month: Number(month),
+      enabled,
+      linkedBlockId: linkedBlockId.trim() || undefined,
+      priority,
+      tags: tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    });
+    selectedTemplateId = templateId;
+    templateLabel = "";
+    toast.success("Template saved.");
+  }
+
+  function handleDeleteTemplate() {
+    if (!selectedTemplateId) {
+      toast.info("Select a template to delete.");
+      return;
+    }
+    const template = templates.find((item) => item.id === selectedTemplateId);
+    templates = deleteTaskTemplate(selectedTemplateId);
+    selectedTemplateId = "";
+    toast.info(`Template "${template?.label ?? "Deleted"}" removed.`);
+  }
 </script>
 
 <div class="task-form">
   <h2 class="task-form__title">
     {isEditing ? "Edit Task" : "Create New Task"}
   </h2>
+
+  <div class="task-form__section task-form__section--templates">
+    <h3 class="task-form__section-title">Templates</h3>
+    <div class="task-form__field">
+      <label class="task-form__label" for="task-template">Choose Template</label>
+      <select
+        id="task-template"
+        class="task-form__select"
+        bind:value={selectedTemplateId}
+        onchange={handleTemplateSelect}
+      >
+        <option value="">Select a template</option>
+        {#each templates as template}
+          <option value={template.id}>{template.label}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="task-form__field task-form__template-actions">
+      <input
+        class="task-form__input"
+        type="text"
+        placeholder="Template name"
+        bind:value={templateLabel}
+      />
+      <button
+        type="button"
+        class="task-form__button task-form__button--secondary"
+        onclick={handleSaveTemplate}
+      >
+        Save Template
+      </button>
+      <button
+        type="button"
+        class="task-form__button task-form__button--ghost"
+        onclick={handleDeleteTemplate}
+      >
+        Delete Template
+      </button>
+    </div>
+  </div>
 
   <div class="task-form__field">
     <label class="task-form__label" for="task-name">Task Name *</label>
@@ -262,6 +433,7 @@
       <option value="daily">Daily</option>
       <option value="weekly">Weekly</option>
       <option value="monthly">Monthly</option>
+      <option value="yearly">Yearly</option>
     </select>
   </div>
 
@@ -314,7 +486,7 @@
     </div>
   {/if}
 
-  {#if frequencyType === "monthly"}
+  {#if frequencyType === "monthly" || frequencyType === "yearly"}
     <div class="task-form__field">
       <label class="task-form__label" for="day-of-month">Day of Month</label>
       <input
@@ -331,6 +503,27 @@
       />
       {#if dayOfMonthError}
         <div class="task-form__error" id="task-day-error">{dayOfMonthError}</div>
+      {/if}
+    </div>
+  {/if}
+
+  {#if frequencyType === "yearly"}
+    <div class="task-form__field">
+      <label class="task-form__label" for="task-month">Month</label>
+      <select
+        id="task-month"
+        class="task-form__select"
+        bind:value={month}
+        aria-invalid={!!monthError}
+        oninput={() => (touched.month = true)}
+        onblur={() => (touched.month = true)}
+      >
+        {#each monthNames as monthName, monthIndex}
+          <option value={monthIndex}>{monthName}</option>
+        {/each}
+      </select>
+      {#if monthError}
+        <div class="task-form__error">{monthError}</div>
       {/if}
     </div>
   {/if}
@@ -523,6 +716,13 @@
     border-top: 1px solid var(--b3-border-color);
   }
 
+  .task-form__section--templates {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    margin-bottom: 16px;
+  }
+
   .task-form__section-title {
     margin: 0 0 16px 0;
     font-size: 16px;
@@ -537,6 +737,13 @@
     justify-content: flex-end;
   }
 
+  .task-form__template-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
   .task-form__button {
     padding: 10px 20px;
     border: none;
@@ -545,6 +752,27 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+  }
+
+  .task-form__button--secondary {
+    background: var(--b3-theme-surface-lighter);
+    color: var(--b3-theme-on-surface);
+    border: 1px solid var(--b3-border-color);
+  }
+
+  .task-form__button--secondary:hover {
+    background: var(--b3-theme-surface-light);
+  }
+
+  .task-form__button--ghost {
+    background: transparent;
+    color: var(--b3-theme-on-surface-light);
+    border: 1px dashed var(--b3-border-color);
+  }
+
+  .task-form__button--ghost:hover {
+    background: var(--b3-theme-surface-lighter);
+    color: var(--b3-theme-on-surface);
   }
 
   .task-form__button--cancel {

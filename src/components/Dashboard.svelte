@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Task } from "@/core/models/Task";
-  import { recordCompletion, recordMiss } from "@/core/models/Task";
+  import { duplicateTask, recordCompletion, recordMiss } from "@/core/models/Task";
   import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
   import type { Scheduler } from "@/core/engine/Scheduler";
   import type { EventService } from "@/services/EventService";
@@ -230,6 +230,24 @@
     });
   }
 
+  async function handleDuplicateTask(task: Task) {
+    const duplicateName = task.name.endsWith(" (copy)")
+      ? `${task.name} ${new Date().toLocaleDateString()}`
+      : `${task.name} (copy)`;
+    const duplicated = duplicateTask(task, {
+      name: duplicateName,
+    });
+
+    allTasks = upsertTask(allTasks, duplicated);
+    toast.success(`Duplicated "${task.name}"`);
+
+    void repository.saveTask(duplicated).catch((err) => {
+      allTasks = removeTask(allTasks, duplicated.id);
+      toast.error("Failed to duplicate task: " + err);
+      loadTasksFromStorage("external");
+    });
+  }
+
   async function handleToggleEnabled(task: Task) {
     const nextEnabled = !task.enabled;
     const nextTask = { ...task, enabled: nextEnabled };
@@ -412,6 +430,7 @@
           tasks={allTasks}
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
+          onDuplicate={handleDuplicateTask}
           onToggleEnabled={handleToggleEnabled}
           onBulkEnable={(taskIds) => handleBulkEnabledUpdate(taskIds, true)}
           onBulkDisable={(taskIds) => handleBulkEnabledUpdate(taskIds, false)}

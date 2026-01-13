@@ -3,6 +3,7 @@
   import type { EventService } from "@/services/EventService";
   import { DEFAULT_NOTIFICATION_CONFIG } from "@/utils/constants";
   import { toast } from "@/utils/notifications";
+  import { SHORTCUTS } from "@/utils/shortcuts";
 
   interface Props {
     eventService: EventService;
@@ -106,6 +107,26 @@
           {testResults.n8n.message}
         </div>
       {/if}
+    </section>
+
+    <section class="settings__section">
+      <div class="settings__section-header">
+        <h3 class="settings__section-title">Keyboard Shortcuts</h3>
+      </div>
+      <div class="settings__shortcuts">
+        {#each SHORTCUTS as shortcut}
+          <div class="settings__shortcut">
+            <div class="settings__shortcut-main">
+              <div class="settings__shortcut-label">{shortcut.label}</div>
+              <div class="settings__shortcut-description">{shortcut.description}</div>
+              {#if shortcut.context}
+                <div class="settings__shortcut-context">{shortcut.context}</div>
+              {/if}
+            </div>
+            <div class="settings__shortcut-keys">{shortcut.keys}</div>
+          </div>
+        {/each}
+      </div>
     </section>
   </div>
 
@@ -270,6 +291,56 @@
     padding: 16px 24px;
     border-top: 1px solid var(--b3-border-color);
     text-align: right;
+  }
+
+  .settings__shortcuts {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings__shortcut {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--b3-border-color);
+    border-radius: 8px;
+    background: var(--b3-theme-surface);
+  }
+
+  .settings__shortcut-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .settings__shortcut-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--b3-theme-on-surface);
+  }
+
+  .settings__shortcut-description {
+    font-size: 13px;
+    color: var(--b3-theme-on-surface-light);
+  }
+
+  .settings__shortcut-context {
+    font-size: 12px;
+    color: var(--b3-theme-on-surface-light);
+  }
+
+  .settings__shortcut-keys {
+    font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--b3-border-color);
+    background: var(--b3-theme-surface-lighter);
+    color: var(--b3-theme-on-surface);
+    align-self: center;
+    white-space: nowrap;
   }
 
   .settings__save-btn {

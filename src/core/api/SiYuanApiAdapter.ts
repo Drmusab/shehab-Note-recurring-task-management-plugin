@@ -105,6 +105,9 @@ export class SiYuanApiAdapter implements SiYuanBlockAPI, SiYuanEnvironmentAPI {
     return typeof this.globalScope?.siyuan?.config?.system?.dataDir === "string";
   }
 
+  /**
+   * Return the configured SiYuan data directory when available.
+   */
   getDataDir(): string | null {
     if (!this.isDataDirAvailable()) {
       return null;
@@ -113,6 +116,9 @@ export class SiYuanApiAdapter implements SiYuanBlockAPI, SiYuanEnvironmentAPI {
     return this.globalScope.siyuan?.config?.system?.dataDir ?? null;
   }
 
+  /**
+   * Set block attributes via the SiYuan API.
+   */
   async setBlockAttrs(blockId: string, attrs: Record<string, string>): Promise<void> {
     const setBlockAttrs = this.getSetBlockAttrs();
 

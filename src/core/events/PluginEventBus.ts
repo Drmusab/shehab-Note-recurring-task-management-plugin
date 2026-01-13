@@ -17,6 +17,9 @@ type EventHandler<T> = (data: T) => void;
 export class PluginEventBus {
   private handlers: Map<string, Set<EventHandler<any>>> = new Map();
 
+  /**
+   * Register a handler for a plugin event.
+   */
   on<K extends keyof PluginEventMap>(event: K, handler: EventHandler<PluginEventMap[K]>): () => void {
     if (!this.handlers.has(event)) {
       this.handlers.set(event, new Set());
@@ -25,10 +28,16 @@ export class PluginEventBus {
     return () => this.handlers.get(event)?.delete(handler);
   }
 
+  /**
+   * Emit a plugin event with payload.
+   */
   emit<K extends keyof PluginEventMap>(event: K, data: PluginEventMap[K]): void {
     this.handlers.get(event)?.forEach(handler => handler(data));
   }
 
+  /**
+   * Clear all registered handlers.
+   */
   clear(): void {
     this.handlers.clear();
   }

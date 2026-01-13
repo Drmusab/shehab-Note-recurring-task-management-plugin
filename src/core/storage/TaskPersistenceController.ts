@@ -32,6 +32,9 @@ export class TaskPersistenceController {
     private debounceMs = 50
   ) {}
 
+  /**
+   * Request a debounced save of the latest task state.
+   */
   requestSave(state: TaskState): void {
     this.pendingState = state;
 
@@ -45,6 +48,9 @@ export class TaskPersistenceController {
     }, this.debounceMs);
   }
 
+  /**
+   * Flush any pending writes and resolve when persistence is complete.
+   */
   async flush(): Promise<void> {
     if (!this.pendingState && !this.writeInProgress && !this.scheduledTimer) {
       return;

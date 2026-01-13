@@ -9,6 +9,12 @@ interface BlockInfoResponse {
   };
 }
 
+interface BlockHtmlResponse {
+  data?: {
+    html?: string;
+  };
+}
+
 export async function fetchBlockPreview(blockId: string): Promise<string | null> {
   return new Promise((resolve) => {
     try {
@@ -26,6 +32,24 @@ export async function fetchBlockPreview(blockId: string): Promise<string | null>
       );
     } catch (error) {
       logger.warn("Failed to fetch block preview", error);
+      resolve(null);
+    }
+  });
+}
+
+export async function fetchBlockEmbed(blockId: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      fetchPost(
+        "/api/block/getBlockHTML",
+        { id: blockId },
+        (response: BlockHtmlResponse) => {
+          const html = response?.data?.html ?? null;
+          resolve(html ? html.trim() : null);
+        }
+      );
+    } catch (error) {
+      logger.warn("Failed to fetch block embed", error);
       resolve(null);
     }
   });
