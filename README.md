@@ -60,43 +60,48 @@ npm run make-link -- --workspace=/path/to/shehab-note/workspace
 
 ```
 src/
-├── index.ts                          # Main plugin entry point
-├── index.scss                        # Global styles
+├── index.ts                          # Plugin entry point (onload/onunload)
+├── index. scss                        # Global styles
 ├── core/
 │   ├── api/
-│   │   └── SiYuanApiAdapter.ts       # SiYuan API abstraction
+│   │   └── SiYuanApiAdapter.ts       # SiYuan API abstraction layer
 │   ├── engine/
-│   │   ├── RecurrenceEngine.ts       # Date calculation logic
-│   │   ├── Scheduler.ts              # Task timing & events
+│   │   ├── RecurrenceEngine.ts       # Date calculation logic (275 lines)
+│   │   ├── Scheduler.ts              # Task timing & events (~500 lines)
+│   │   ├── SchedulerTimer.ts         # ✨ NEW:  Extracted timer management
 │   │   ├── SchedulerEvents.ts        # Event type definitions
 │   │   ├── TimezoneHandler.ts        # Timezone utilities
 │   │   └── NotificationState.ts      # Notification tracking
 │   ├── managers/
 │   │   └── TaskManager.ts            # Singleton lifecycle manager
 │   ├── models/
-│   │   ├── Task.ts                   # Task entity & helpers
-│   │   └── Frequency.ts              # Recurrence rule types
-│   └── storage/
-│       ├── TaskStorage.ts            # Main storage facade
-│       ├── ActiveTaskStore.ts        # Active task persistence
-│       ├── ArchiveTaskStore.ts       # Archive management
-│       ├── TaskPersistenceController.ts  # Write coalescing
-│       └── MigrationManager.ts       # Schema migrations
+│   │   ├── Task.ts                   # Task entity & helpers (now with duplicateTask)
+│   │   └���─ Frequency.ts              # Recurrence rule types (now with yearly)
+│   ├── storage/
+│   │   ├── TaskStorage.ts            # Main storage facade
+│   │   ├── TaskRepository.ts         # Repository abstraction
+│   │   ├── ActiveTaskStore.ts        # Active tasks persistence
+│   │   ├── ArchiveTaskStore.ts       # Archived tasks storage
+│   │   ├── TaskPersistenceController.ts  # Debounced save controller
+│   │   └── MigrationManager.ts       # Schema migration
+│   └── events/
+│       └── PluginEventBus.ts         # Internal event bus
 ├── services/
-│   ├── EventService.ts               # n8n webhook orchestration
+│   ├── EventService. ts               # n8n webhook orchestration
 │   └── types. ts                      # Service type definitions
 ├── components/
-│   ├── Dashboard.svelte              # Main UI container
+│   ├── Dashboard.svelte              # Main dashboard container
 │   ├── dashboard/
-│   │   └── taskState. ts              # UI state helpers
+│   │   └── taskState.ts              # UI state helpers
 │   ├── tabs/
 │   │   ├── TodayTab.svelte           # Today & overdue view
-│   │   ├── AllTasksTab.svelte        # All tasks management
-│   │   ├── TimelineTab.svelte        # Calendar view
-│   │   └── AnalyticsTab.svelte       # Analytics dashboard
+│   │   ├── AllTasksTab.svelte        # All tasks management (now with duplicate)
+│   │   ├── TimelineTab.svelte        # Calendar timeline (with memoization)
+│   │   └── AnalyticsTab.svelte       # Statistics dashboard
 │   ├── cards/
-│   │   ├── TaskCard.svelte           # Task display
-│   │   └── TaskForm.svelte           # Task creation/editing
+│   │   ├── TaskCard.svelte           # Task display component
+│   │   ├── TaskForm.svelte           # Task creation/editing (with templates & preview)
+│   │   └── QuickAddOverlay.svelte    # Quick task creation
 │   └── settings/
 │       └── Settings.svelte           # Configuration panel
 ├── plugin/
@@ -107,8 +112,10 @@ src/
 │   ├── constants.ts                  # Application constants
 │   ├── date.ts                       # Date utilities
 │   ├── logger.ts                     # Logging
-│   └── notifications.ts              # Toast notifications
-└── __tests__/                        # Test files
+│   ├── notifications.ts              # Toast notifications
+│   ├── blocks.ts                     # Block fetching utilities
+│   └── taskTemplates.ts              # ✨ NEW:  Task template management
+└── __tests__/                        # Test files (comprehensive)
 ```
 
 ## Usage
