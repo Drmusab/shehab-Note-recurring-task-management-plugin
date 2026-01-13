@@ -13,6 +13,7 @@ import { TopbarMenu } from "./plugin/topbar";
 import { DOCK_TYPE, STORAGE_ACTIVE_KEY } from "./utils/constants";
 import * as logger from "./utils/logger";
 import { showToast, toast } from "./utils/notifications";
+import { pluginEventBus } from "./core/events/PluginEventBus";
 import "./index.scss";
 
 export default class RecurringTasksPlugin extends Plugin {
@@ -143,7 +144,29 @@ export default class RecurringTasksPlugin extends Plugin {
 
   private addEventListeners() {
     try {
-      // Listen for custom events from commands and menus
+      // Listen to pluginEventBus for internal communication
+      pluginEventBus.on('task:create', (data) => {
+        logger.info("Create task event received", data);
+        this.openQuickAdd(data);
+      });
+      
+      pluginEventBus.on('task:complete', async (data) => {
+        await this.handleCompleteTask(data.taskId);
+      });
+      
+      pluginEventBus.on('task:snooze', async (data) => {
+        await this.handleSnoozeTask(data.taskId, data.minutes);
+      });
+      
+      pluginEventBus.on('task:settings', () => {
+        this.openDock();
+      });
+      
+      pluginEventBus.on('task:refresh', () => {
+        // Dashboard will handle its own refresh
+      });
+
+      // Also listen for window events for backward compatibility
       window.addEventListener("recurring-task-create", this.handleCreateTaskEvent);
       window.addEventListener("recurring-task-settings", this.handleSettingsEvent);
       window.addEventListener("recurring-task-complete", this.handleCompleteTaskEvent);
@@ -155,6 +178,7 @@ export default class RecurringTasksPlugin extends Plugin {
   }
 
   private removeEventListeners() {
+    pluginEventBus.clear();
     window.removeEventListener("recurring-task-create", this.handleCreateTaskEvent);
     window.removeEventListener("recurring-task-settings", this.handleSettingsEvent);
     window.removeEventListener("recurring-task-complete", this.handleCompleteTaskEvent);
@@ -199,56 +223,59 @@ export default class RecurringTasksPlugin extends Plugin {
       if (!taskId) {
         throw new Error("Missing taskId for completion event.");
       }
-
-      const task = this.storage.getTask(taskId);
-      if (task) {
-        if (this.pendingCompletionTimeouts.has(taskId)) {
-          toast.info(`Completion already pending for "${task.name}".`);
-          return;
-        }
-
-        const timeoutId = window.setTimeout(async () => {
-          this.pendingCompletionTimeouts.delete(taskId);
-          try {
-            await this.eventService.handleTaskCompleted(task);
-            await this.scheduler.markTaskDone(taskId);
-
-            // Update topbar badge
-            if (this.topbarMenu) {
-              this.topbarMenu.update();
-            }
-
-            logger.info(`Task completed: ${task.name}`);
-          } catch (err) {
-            logger.error("Failed to finalize task completion", err);
-            toast.error("Failed to complete task.");
-          }
-        }, 5000);
-
-        this.pendingCompletionTimeouts.set(taskId, timeoutId);
-
-        const undoCompletion = () => {
-          const pending = this.pendingCompletionTimeouts.get(taskId);
-          if (pending) {
-            window.clearTimeout(pending);
-            this.pendingCompletionTimeouts.delete(taskId);
-            toast.info(`Undo: "${task.name}" restored`);
-          }
-        };
-
-        showToast({
-          message: `Task "${task.name}" completed.`,
-          type: "success",
-          duration: 5000,
-          actionLabel: "Undo",
-          onAction: undoCompletion,
-        });
-      }
+      await this.handleCompleteTask(taskId);
     } catch (err) {
       logger.error("Failed to complete task", err);
       toast.error("Failed to complete task.");
     }
   };
+
+  private async handleCompleteTask(taskId: string): Promise<void> {
+    const task = this.storage.getTask(taskId);
+    if (task) {
+      if (this.pendingCompletionTimeouts.has(taskId)) {
+        toast.info(`Completion already pending for "${task.name}".`);
+        return;
+      }
+
+      const timeoutId = window.setTimeout(async () => {
+        this.pendingCompletionTimeouts.delete(taskId);
+        try {
+          await this.eventService.handleTaskCompleted(task);
+          await this.scheduler.markTaskDone(taskId);
+
+          // Update topbar badge
+          if (this.topbarMenu) {
+            this.topbarMenu.update();
+          }
+
+          logger.info(`Task completed: ${task.name}`);
+        } catch (err) {
+          logger.error("Failed to finalize task completion", err);
+          toast.error("Failed to complete task.");
+        }
+      }, 5000);
+
+      this.pendingCompletionTimeouts.set(taskId, timeoutId);
+
+      const undoCompletion = () => {
+        const pending = this.pendingCompletionTimeouts.get(taskId);
+        if (pending) {
+          window.clearTimeout(pending);
+          this.pendingCompletionTimeouts.delete(taskId);
+          toast.info(`Undo: "${task.name}" restored`);
+        }
+      };
+
+      showToast({
+        message: `Task "${task.name}" completed.`,
+        type: "success",
+        duration: 5000,
+        actionLabel: "Undo",
+        onAction: undoCompletion,
+      });
+    }
+  }
 
   private handleSnoozeTaskEvent = async (event: Event) => {
     try {
@@ -257,24 +284,27 @@ export default class RecurringTasksPlugin extends Plugin {
       if (!taskId || typeof minutes !== "number") {
         throw new Error("Missing task snooze details.");
       }
-
-      const task = this.storage.getTask(taskId);
-      if (task) {
-        await this.eventService.handleTaskSnoozed(task);
-        await this.scheduler.delayTask(taskId, minutes);
-        
-        // Update topbar badge
-        if (this.topbarMenu) {
-          this.topbarMenu.update();
-        }
-        
-        logger.info(`Task snoozed: ${task.name} for ${minutes} minutes`);
-      }
+      await this.handleSnoozeTask(taskId, minutes);
     } catch (err) {
       logger.error("Failed to snooze task", err);
       toast.error("Failed to snooze task.");
     }
   };
+
+  private async handleSnoozeTask(taskId: string, minutes: number): Promise<void> {
+    const task = this.storage.getTask(taskId);
+    if (task) {
+      await this.eventService.handleTaskSnoozed(task);
+      await this.scheduler.delayTask(taskId, minutes);
+      
+      // Update topbar badge
+      if (this.topbarMenu) {
+        this.topbarMenu.update();
+      }
+      
+      logger.info(`Task snoozed: ${task.name} for ${minutes} minutes`);
+    }
+  }
 
   private openQuickAdd(prefill?: {
     suggestedName?: string;

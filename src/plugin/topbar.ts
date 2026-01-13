@@ -4,6 +4,7 @@
 
 import type { Plugin } from "siyuan";
 import type { TaskStorage } from "@/core/storage/TaskStorage";
+import { pluginEventBus } from "@/core/events/PluginEventBus";
 import { TOPBAR_ICON_ID } from "@/utils/constants";
 import * as logger from "@/utils/logger";
 
@@ -123,6 +124,11 @@ export class TopbarMenu {
   private toggleMenu(): void {
     // For now, just open the dock
     // In the future, this could show a dropdown menu
+    
+    // Use pluginEventBus for internal communication
+    pluginEventBus.emit('task:settings', { action: 'toggle' });
+    
+    // Also dispatch window event for backward compatibility
     const event = new CustomEvent("recurring-task-settings", {
       detail: { action: "toggle" },
     });
