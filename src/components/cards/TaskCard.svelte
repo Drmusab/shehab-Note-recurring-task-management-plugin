@@ -183,13 +183,27 @@
   function handleBlockPreviewClose() {
     showBlockPreview = false;
   }
+  
+  // Sanitize task name for ARIA label
+  const ariaLabel = $derived(() => {
+    const sanitized = task.name.replace(/[<>"&]/g, (char) => {
+      const entities: Record<string, string> = {
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        '&': '&amp;',
+      };
+      return entities[char] || char;
+    });
+    return `Task: ${sanitized}`;
+  });
 </script>
 
 <div
   class="task-card {statusClass}"
   style="--overdue-tint: {overdueTint}; --overdue-border: {overdueBorder};"
   role="article"
-  aria-label="Task: {task.name}"
+  aria-label={ariaLabel()}
   onkeydown={(event) => {
     if (event.key === "Escape" && showSnoozeMenu) {
       showSnoozeMenu = false;

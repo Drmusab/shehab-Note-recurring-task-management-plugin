@@ -93,7 +93,7 @@
 </script>
 
 <div class="quick-add-overlay" onkeydown={handleKeydown} role="dialog" aria-modal="true" aria-labelledby="quick-add-title">
-  <div class="quick-add-card">
+  <div class="quick-add-card" role="document">
     <div class="quick-add-card__header">
       <h2 id="quick-add-title">Quick Add</h2>
       <button class="quick-add-card__close" type="button" onclick={onClose} aria-label="Close">
