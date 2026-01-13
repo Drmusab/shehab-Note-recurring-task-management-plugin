@@ -3,6 +3,7 @@
   import type { Frequency, FrequencyType } from "@/core/models/Frequency";
   import { createTask } from "@/core/models/Task";
   import { createDefaultFrequency } from "@/core/models/Frequency";
+  import { WEEKDAY_NAMES } from "@/utils/constants";
   import { toast } from "@/utils/notifications";
 
   interface Props {
@@ -140,15 +141,7 @@
     }
   }
 
-  const weekdayNames = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
+  const weekdayNames = WEEKDAY_NAMES;
 </script>
 
 <div class="task-form">

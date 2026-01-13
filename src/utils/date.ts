@@ -104,6 +104,21 @@ export function setTime(date: Date, hours: number, minutes: number): Date {
 }
 
 /**
+ * Set time on a date while detecting DST shifts.
+ * Returns the adjusted date and whether the time was shifted by DST rules.
+ */
+export function setTimeWithFallback(
+  date: Date,
+  hours: number,
+  minutes: number
+): { date: Date; shifted: boolean } {
+  const result = new Date(date);
+  result.setHours(hours, minutes, 0, 0);
+  const shifted = result.getHours() !== hours || result.getMinutes() !== minutes;
+  return { date: result, shifted };
+}
+
+/**
  * Get start of day
  */
 export function startOfDay(date: Date): Date {

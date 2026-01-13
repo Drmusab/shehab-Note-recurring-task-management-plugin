@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Task } from "@/core/models/Task";
   import { formatDateTime } from "@/utils/date";
+  import { WEEKDAY_SHORT } from "@/utils/constants";
 
   interface Props {
     tasks: Task[];
@@ -40,9 +41,8 @@
     const unit = type === "daily" ? "day" : type === "weekly" ? "week" : "month";
     const base = interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
     if (type === "weekly") {
-      const weekdayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
       return `${base} on ${task.frequency.weekdays
-        .map((day) => weekdayNames[day] ?? day)
+        .map((day) => WEEKDAY_SHORT[day] ?? day)
         .join(", ")}`;
     }
     if (type === "monthly") {

@@ -14,6 +14,10 @@ export type Frequency =
       interval: number;
       /** Optional fixed time in HH:mm format (e.g., "09:00") */
       time?: string;
+      /** Optional anchor date (ISO string) for future recurrence alignment */
+      anchorDate?: string;
+      /** Optional IANA timezone identifier */
+      timezone?: string;
     }
   | {
       /** Type of recurrence */
@@ -24,6 +28,10 @@ export type Frequency =
       weekdays: number[];
       /** Optional fixed time in HH:mm format (e.g., "09:00") */
       time?: string;
+      /** Optional anchor date (ISO string) for future recurrence alignment */
+      anchorDate?: string;
+      /** Optional IANA timezone identifier */
+      timezone?: string;
     }
   | {
       /** Type of recurrence */
@@ -34,6 +42,10 @@ export type Frequency =
       dayOfMonth: number;
       /** Optional fixed time in HH:mm format (e.g., "09:00") */
       time?: string;
+      /** Optional anchor date (ISO string) for future recurrence alignment */
+      anchorDate?: string;
+      /** Optional IANA timezone identifier */
+      timezone?: string;
     };
 
 /**

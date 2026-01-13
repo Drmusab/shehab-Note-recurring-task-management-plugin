@@ -1,5 +1,6 @@
 import type { Frequency } from "@/core/models/Frequency";
-import { addDays, addWeeks, setTime, parseTime } from "@/utils/date";
+import * as logger from "@/utils/logger";
+import { addDays, addWeeks, setTimeWithFallback, parseTime } from "@/utils/date";
 import { MAX_RECURRENCE_ITERATIONS, MAX_RECOVERY_ITERATIONS } from "@/utils/constants";
 
 /**
@@ -70,7 +71,15 @@ export class RecurrenceEngine {
     if (time) {
       const { hours, minutes } = parseTime(time);
       if (Number.isFinite(hours) && Number.isFinite(minutes)) {
-        nextDate = setTime(nextDate, hours, minutes);
+        const { date, shifted } = setTimeWithFallback(nextDate, hours, minutes);
+        if (shifted) {
+          logger.warn("DST shift detected while applying recurrence time", {
+            requestedTime: time,
+            original: nextDate.toISOString(),
+            adjusted: date.toISOString(),
+          });
+        }
+        nextDate = date;
       }
     }
 
@@ -98,7 +107,7 @@ export class RecurrenceEngine {
     }
 
     // Find next occurrence on specified weekdays
-    const currentDay = (currentDue.getDay() + 6) % 7;
+    const currentDay = this.getMondayIndex(currentDue);
     let daysToAdd = 0;
     let found = false;
 
@@ -125,6 +134,13 @@ export class RecurrenceEngine {
     }
 
     return addDays(currentDue, daysToAdd);
+  }
+
+  /**
+   * Convert JS Date.getDay() (Sunday=0) to Monday-based index (Monday=0).
+   */
+  private getMondayIndex(date: Date): number {
+    return (date.getDay() + 6) % 7;
   }
 
   /**
@@ -219,7 +235,16 @@ export class RecurrenceEngine {
       current = this.calculateNext(current, frequency);
       iterations++;
     }
-    
+    if (iterations >= MAX_RECOVERY_ITERATIONS) {
+      logger.warn("Recovery iteration cap hit while computing missed occurrences", {
+        lastCheckedAt: lastCheckedAt.toISOString(),
+        now: now.toISOString(),
+        frequency,
+        firstOccurrence: firstOccurrence.toISOString(),
+        cap: MAX_RECOVERY_ITERATIONS,
+      });
+    }
+
     return missed;
   }
 }

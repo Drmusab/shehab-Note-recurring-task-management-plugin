@@ -107,16 +107,16 @@ export const FREQUENCY_LABELS: Record<string, string> = {
  * Weekday names
  */
 export const WEEKDAY_NAMES = [
-  "Sunday",
   "Monday",
   "Tuesday",
   "Wednesday",
   "Thursday",
   "Friday",
   "Saturday",
+  "Sunday",
 ];
 
-export const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /**
  * Last run timestamp key for missed task recovery
