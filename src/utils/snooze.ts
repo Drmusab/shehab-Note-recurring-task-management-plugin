@@ -1,6 +1,11 @@
+import { pluginEventBus } from "@/core/events/PluginEventBus";
 import * as logger from "@/utils/logger";
 
 export function snoozeTask(taskId: string, minutes: number): void {
+  // Use pluginEventBus for internal communication
+  pluginEventBus.emit('task:snooze', { taskId, minutes });
+  
+  // Also dispatch window event for backward compatibility
   window.dispatchEvent(new CustomEvent("task-snooze", {
     detail: { taskId, minutes },
   }));
@@ -13,6 +18,10 @@ export function snoozeToTomorrow(taskId: string): void {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const minutesUntilTomorrow = Math.floor((tomorrow.getTime() - now.getTime()) / (60 * 1000));
 
+  // Use pluginEventBus for internal communication
+  pluginEventBus.emit('task:snooze', { taskId, minutes: minutesUntilTomorrow });
+  
+  // Also dispatch window event for backward compatibility
   window.dispatchEvent(new CustomEvent("task-snooze", {
     detail: { taskId, minutes: minutesUntilTomorrow },
   }));

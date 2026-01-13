@@ -192,12 +192,29 @@
   }
 
   async function handleDeleteTask(task: Task) {
+    const previousTasks = allTasks;
     allTasks = removeTask(allTasks, task.id);
-    toast.success(`Task "${task.name}" deleted`);
+    
+    const undoTimeout = window.setTimeout(async () => {
+      try {
+        await storage.deleteTask(task.id);
+      } catch (err) {
+        allTasks = previousTasks;
+        toast.error("Failed to delete task: " + err);
+        loadTasksFromStorage("external");
+      }
+    }, 5000);
 
-    void storage.deleteTask(task.id).catch((err) => {
-      toast.error("Failed to delete task: " + err);
-      loadTasksFromStorage("external");
+    showToast({
+      message: `Task "${task.name}" deleted`,
+      type: "success",
+      duration: 5000,
+      actionLabel: "Undo",
+      onAction: () => {
+        window.clearTimeout(undoTimeout);
+        allTasks = previousTasks;
+        toast.info(`Restored "${task.name}"`);
+      },
     });
   }
 

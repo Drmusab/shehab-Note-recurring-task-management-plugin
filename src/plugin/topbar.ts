@@ -4,6 +4,7 @@
 
 import type { Plugin } from "siyuan";
 import type { TaskStorage } from "@/core/storage/TaskStorage";
+import { pluginEventBus } from "@/core/events/PluginEventBus";
 import { TOPBAR_ICON_ID } from "@/utils/constants";
 import * as logger from "@/utils/logger";
 
@@ -32,7 +33,7 @@ export class TopbarMenu {
    */
   destroy(): void {
     if (this.updateIntervalId !== null) {
-      clearInterval(this.updateIntervalId);
+      window.clearInterval(this.updateIntervalId);
       this.updateIntervalId = null;
     }
 
@@ -123,6 +124,11 @@ export class TopbarMenu {
   private toggleMenu(): void {
     // For now, just open the dock
     // In the future, this could show a dropdown menu
+    
+    // Use pluginEventBus for internal communication
+    pluginEventBus.emit('task:settings', { action: 'toggle' });
+    
+    // Also dispatch window event for backward compatibility
     const event = new CustomEvent("recurring-task-settings", {
       detail: { action: "toggle" },
     });
@@ -133,9 +139,9 @@ export class TopbarMenu {
    * Start auto-update of badge every minute
    */
   private startAutoUpdate(): void {
-    this.updateIntervalId = setInterval(() => {
+    this.updateIntervalId = window.setInterval(() => {
       this.updateBadge();
-    }, 60 * 1000) as unknown as number;
+    }, 60 * 1000);
   }
 
   /**

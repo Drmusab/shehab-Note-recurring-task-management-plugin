@@ -5,6 +5,7 @@
 
 import type { Plugin } from "siyuan";
 import { TaskManager } from "@/core/managers/TaskManager";
+import { pluginEventBus } from "@/core/events/PluginEventBus";
 import * as logger from "@/utils/logger";
 import { snoozeTask, snoozeToTomorrow } from "@/utils/snooze";
 
@@ -32,6 +33,16 @@ export function registerBlockMenu(plugin: Plugin): void {
       icon: 'iconCalendar',
       label: plugin.i18n?.createRecurringTask || 'Create Recurring Task',
       click: () => {
+        // Use pluginEventBus for internal communication
+        pluginEventBus.emit('task:create', {
+          source: 'block-menu',
+          linkedBlockId: blockId,
+          linkedBlockContent: blockContent,
+          suggestedName: extractTaskName(blockContent),
+          suggestedTime: extractTimeFromContent(blockContent),
+        });
+        
+        // Also dispatch window event for backward compatibility
         window.dispatchEvent(new CustomEvent('recurring-task-create', {
           detail: {
             source: 'block-menu',
@@ -60,6 +71,10 @@ export function registerBlockMenu(plugin: Plugin): void {
             icon: 'iconCheck',
             label: plugin.i18n?.completeTask || 'Complete Task',
             click: () => {
+              // Use pluginEventBus for internal communication
+              pluginEventBus.emit('task:complete', { taskId: existingTask.id });
+              
+              // Also dispatch window event for backward compatibility
               window.dispatchEvent(new CustomEvent('recurring-task-complete', {
                 detail: { taskId: existingTask.id }
               }));
@@ -140,7 +155,15 @@ export function extractTimeFromContent(content: string): string | null {
 export function createTaskFromBlock(blockId: string, blockContent: string): void {
   const time = extractTimeFromContent(blockContent);
   
-  // Dispatch event to create task with block info
+  // Use pluginEventBus for internal communication
+  pluginEventBus.emit('task:create', {
+    source: 'block',
+    linkedBlockId: blockId,
+    linkedBlockContent: blockContent,
+    suggestedTime: time,
+  });
+  
+  // Also dispatch window event for backward compatibility
   const event = new CustomEvent("recurring-task-create", {
     detail: {
       source: "block",

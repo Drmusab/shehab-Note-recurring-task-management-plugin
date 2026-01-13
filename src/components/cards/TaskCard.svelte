@@ -64,6 +64,8 @@
 
   let showSnoozeMenu = $state(false);
   let firstSnoozeOption: HTMLButtonElement | null = $state(null);
+  let snoozeMenuIndex = $state(-1);
+  let snoozeOptionRefs: HTMLButtonElement[] = [];
   let showBlockPreview = $state(false);
   let blockPreview = $state<string | null>(null);
   let blockPreviewLoading = $state(false);
@@ -116,6 +118,8 @@
     showSnoozeMenu = !showSnoozeMenu;
     if (showSnoozeMenu) {
       await tick();
+      snoozeMenuIndex = -1;
+      snoozeOptionRefs = [];
       firstSnoozeOption?.focus();
     }
   }
@@ -127,6 +131,31 @@
     });
     window.dispatchEvent(event);
     showSnoozeMenu = false;
+    snoozeMenuIndex = -1;
+  }
+
+  function handleSnoozeMenuKeydown(event: KeyboardEvent) {
+    const options = quickSnoozeOptions;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      snoozeMenuIndex = Math.min(snoozeMenuIndex + 1, options.length - 1);
+      snoozeOptionRefs[snoozeMenuIndex]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      snoozeMenuIndex = Math.max(snoozeMenuIndex - 1, 0);
+      snoozeOptionRefs[snoozeMenuIndex]?.focus();
+    } else if (event.key === "Escape") {
+      showSnoozeMenu = false;
+      snoozeMenuIndex = -1;
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      snoozeMenuIndex = 0;
+      snoozeOptionRefs[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      snoozeMenuIndex = options.length - 1;
+      snoozeOptionRefs[snoozeMenuIndex]?.focus();
+    }
   }
 
   function handleSnoozeKeydown(event: KeyboardEvent) {
@@ -259,24 +288,17 @@
         {/each}
       </div>
       {#if showSnoozeMenu}
-        <div class="task-card__snooze-menu" onkeydown={handleSnoozeKeydown}>
+        <div class="task-card__snooze-menu" onkeydown={handleSnoozeMenuKeydown} role="menu">
           {#each SNOOZE_OPTIONS as option, index}
-            {#if index === 0}
-              <button
-                class="task-card__snooze-option"
-                bind:this={firstSnoozeOption}
-                onclick={() => handleSnooze(option.minutes)}
-              >
-                {option.label}
-              </button>
-            {:else}
-              <button
-                class="task-card__snooze-option"
-                onclick={() => handleSnooze(option.minutes)}
-              >
-                {option.label}
-              </button>
-            {/if}
+            <button
+              class="task-card__snooze-option"
+              bind:this={snoozeOptionRefs[index]}
+              onclick={() => handleSnooze(option.minutes)}
+              role="menuitem"
+              tabindex={index === 0 ? 0 : -1}
+            >
+              {option.label}
+            </button>
           {/each}
         </div>
       {/if}

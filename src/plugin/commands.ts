@@ -5,6 +5,7 @@
 import type { Plugin } from "siyuan";
 import type { TaskStorage } from "@/core/storage/TaskStorage";
 import { createTask } from "@/core/models/Task";
+import { pluginEventBus } from "@/core/events/PluginEventBus";
 import * as logger from "@/utils/logger";
 
 /**
@@ -46,6 +47,12 @@ export function registerCommands(plugin: Plugin, storage: TaskStorage): void {
  * Dispatch event to open task creation dialog
  */
 function dispatchCreateTaskEvent(): void {
+  // Use pluginEventBus for internal communication
+  pluginEventBus.emit('task:create', {
+    source: 'command',
+  });
+  
+  // Also dispatch window event for backward compatibility
   const event = new CustomEvent("recurring-task-create", {
     detail: {
       source: "command",
@@ -68,7 +75,12 @@ async function quickCompleteNextTask(storage: TaskStorage): Promise<void> {
     // Get the most overdue task
     const task = tasks[0];
     
-    // Dispatch complete event
+    // Use pluginEventBus for internal communication
+    pluginEventBus.emit('task:complete', {
+      taskId: task.id,
+    });
+    
+    // Also dispatch window event for backward compatibility
     const event = new CustomEvent("recurring-task-complete", {
       detail: {
         taskId: task.id,

@@ -34,31 +34,26 @@
     dayOfMonth: false,
   });
 
-  const nameError = $derived(() =>
+  const nameError = $derived(
     touched.name && !name.trim() ? "Task name is required." : ""
   );
-  const dueAtError = $derived(() => {
-    if (!touched.dueAt) {
-      return "";
-    }
-    if (!dueAt) {
-      return "Due date and time are required.";
-    }
-    const parsed = new Date(dueAt);
-    return Number.isNaN(parsed.getTime()) ? "Enter a valid date and time." : "";
-  });
-  const weekdaysError = $derived(() =>
+  const dueAtError = $derived(
+    !touched.dueAt ? "" :
+    !dueAt ? "Due date and time are required." :
+    Number.isNaN(new Date(dueAt).getTime()) ? "Enter a valid date and time." : ""
+  );
+  const weekdaysError = $derived(
     touched.weekdays && frequencyType === "weekly" && weekdays.length === 0
       ? "Select at least one weekday."
       : ""
   );
-  const dayOfMonthError = $derived(() =>
+  const dayOfMonthError = $derived(
     touched.dayOfMonth && frequencyType === "monthly" && (dayOfMonth < 1 || dayOfMonth > 31)
       ? "Day of month must be between 1 and 31."
       : ""
   );
   const hasErrors = $derived(
-    () => !!(nameError || dueAtError || weekdaysError || dayOfMonthError)
+    !!(nameError || dueAtError || weekdaysError || dayOfMonthError)
   );
 
   // Initialize form from task
@@ -184,7 +179,7 @@
   }
 
   const weekdayNames = WEEKDAY_NAMES;
-  const weekdayLabels = ["M", "T", "W", "T", "F", "S", "S"];
+  const weekdayLabels = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 </script>
 
 <div class="task-form">
@@ -273,6 +268,7 @@
             type="button"
             aria-pressed={weekdays.includes(index)}
             aria-label={day}
+            title={day}
           >
             {weekdayLabels[index]}
           </button>

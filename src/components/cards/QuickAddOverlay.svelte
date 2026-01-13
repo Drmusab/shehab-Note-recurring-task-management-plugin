@@ -26,20 +26,15 @@
   let isSaving = $state(false);
   let nameInput: HTMLInputElement | null = $state(null);
 
-  const nameError = $derived(() =>
+  const nameError = $derived(
     touched.name && !name.trim() ? "Task name is required." : ""
   );
-  const dueAtError = $derived(() => {
-    if (!touched.dueAt) {
-      return "";
-    }
-    if (!dueAt) {
-      return "Due date and time are required.";
-    }
-    const parsed = new Date(dueAt);
-    return Number.isNaN(parsed.getTime()) ? "Enter a valid date and time." : "";
-  });
-  const hasErrors = $derived(() => !!(nameError || dueAtError));
+  const dueAtError = $derived(
+    !touched.dueAt ? "" :
+    !dueAt ? "Due date and time are required." :
+    Number.isNaN(new Date(dueAt).getTime()) ? "Enter a valid date and time." : ""
+  );
+  const hasErrors = $derived(!!(nameError || dueAtError));
 
   onMount(() => {
     if (prefill?.suggestedTime) {
