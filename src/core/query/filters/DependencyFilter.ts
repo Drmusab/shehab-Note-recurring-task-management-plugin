@@ -33,9 +33,10 @@ export class IsBlockingFilter extends Filter {
 
   matches(task: Task): boolean {
     if (!this.dependencyGraph) {
-      // If no dependency graph, check dependsOn field (tasks that depend on this one)
-      // This would require a reverse lookup, so we'll return false for now
-      return this.negate;
+      // If no dependency graph, check if this task has any dependsOn relationships
+      // by checking if other tasks reference this task (would need reverse lookup)
+      // For now, return false as we can't determine without full graph
+      return this.negate ? true : false;
     }
     
     const result = this.dependencyGraph.isBlocking(task.id);

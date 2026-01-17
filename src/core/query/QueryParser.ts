@@ -38,16 +38,20 @@ export class QueryParser {
   private position: number = 0;
   private line: number = 1;
   private column: number = 1;
+  private referenceDate: Date = new Date();
 
   /**
    * Parse query string to AST
+   * @param queryString The query string to parse
+   * @param referenceDate Reference date for relative date parsing (defaults to now)
    * @throws QuerySyntaxError with helpful error message
    */
-  parse(queryString: string): QueryAST {
+  parse(queryString: string, referenceDate: Date = new Date()): QueryAST {
     this.input = queryString.trim();
     this.position = 0;
     this.line = 1;
     this.column = 1;
+    this.referenceDate = referenceDate;
 
     const ast: QueryAST = {
       filters: [],
@@ -217,7 +221,7 @@ export class QueryParser {
         const prefix = `${field} ${comparator} `;
         if (line.startsWith(prefix)) {
           const dateStr = line.substring(prefix.length).trim();
-          const parsedDate = DateParser.parse(dateStr);
+          const parsedDate = DateParser.parse(dateStr, this.referenceDate);
           
           if (!parsedDate.isValid || !parsedDate.date) {
             throw new QuerySyntaxError(

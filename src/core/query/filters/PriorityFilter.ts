@@ -7,6 +7,32 @@ export type Priority = 'low' | 'normal' | 'high' | 'urgent';
 // Type for spec-defined priority levels (for query language)
 export type PriorityLevel = 'lowest' | 'low' | 'normal' | 'medium' | 'high' | 'highest';
 
+// Priority weight mapping
+const PRIORITY_WEIGHTS: Record<PriorityLevel, number> = {
+  'lowest': 0,
+  'low': 1,
+  'medium': 2,
+  'normal': 2,
+  'high': 3,
+  'highest': 4,
+};
+
+// Map Task priority to PriorityLevel
+function mapToPriorityLevel(p: Priority | undefined): PriorityLevel {
+  switch (p) {
+    case 'low':
+      return 'low';
+    case 'normal':
+      return 'normal';
+    case 'high':
+      return 'high';
+    case 'urgent':
+      return 'highest';
+    default:
+      return 'normal';
+  }
+}
+
 export class PriorityFilter extends Filter {
   constructor(
     private operator: 'is' | 'above' | 'below',
@@ -16,9 +42,9 @@ export class PriorityFilter extends Filter {
   }
 
   matches(task: Task): boolean {
-    const taskPriority = task.priority || 'normal';
-    const taskWeight = this.getPriorityWeight(this.mapToPriority(taskPriority));
-    const targetWeight = this.getPriorityWeight(this.level);
+    const taskPriority = mapToPriorityLevel(task.priority);
+    const taskWeight = PRIORITY_WEIGHTS[taskPriority];
+    const targetWeight = PRIORITY_WEIGHTS[this.level];
 
     switch (this.operator) {
       case 'is':
@@ -29,40 +55,6 @@ export class PriorityFilter extends Filter {
         return taskWeight < targetWeight;
       default:
         return false;
-    }
-  }
-
-  private mapToPriority(p: Priority): PriorityLevel {
-    // Map Task priority to PriorityLevel
-    switch (p) {
-      case 'low':
-        return 'low';
-      case 'normal':
-        return 'normal';
-      case 'high':
-        return 'high';
-      case 'urgent':
-        return 'highest';
-      default:
-        return 'normal';
-    }
-  }
-
-  private getPriorityWeight(priority: PriorityLevel): number {
-    switch (priority) {
-      case 'lowest':
-        return 0;
-      case 'low':
-        return 1;
-      case 'medium':
-      case 'normal':
-        return 2;
-      case 'high':
-        return 3;
-      case 'highest':
-        return 4;
-      default:
-        return 2;
     }
   }
 }

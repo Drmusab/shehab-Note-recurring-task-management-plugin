@@ -36,18 +36,11 @@ export class TagGrouper extends Grouper {
       const tags = task.tags || [];
       
       if (tags.length === 0) {
-        const key = 'No tags';
-        if (!groups.has(key)) {
-          groups.set(key, []);
-        }
-        groups.get(key)!.push(task);
+        this.addToGroup(groups, 'No tags', task);
       } else {
         // Add task to each tag group
         for (const tag of tags) {
-          if (!groups.has(tag)) {
-            groups.set(tag, []);
-          }
-          groups.get(tag)!.push(task);
+          this.addToGroup(groups, tag, task);
         }
       }
     }
