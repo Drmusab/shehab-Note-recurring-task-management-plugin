@@ -16,9 +16,10 @@
     repository: TaskRepositoryProvider;
     onClose: () => void;
     prefill?: Prefill;
+    onAdvanced?: () => void;
   }
 
-  let { repository, onClose, prefill }: Props = $props();
+  let { repository, onClose, prefill, onAdvanced }: Props = $props();
 
   // Initialize with prefill value - it's used once at component creation
   let name = $state(prefill?.suggestedName ?? "");
@@ -143,6 +144,11 @@
       <button class="quick-add-card__cancel" type="button" onclick={onClose}>
         Cancel
       </button>
+      {#if onAdvanced}
+        <button class="quick-add-card__advanced" type="button" onclick={onAdvanced}>
+          Advanced...
+        </button>
+      {/if}
       <button class="quick-add-card__save" type="button" onclick={handleSave} disabled={isSaving}>
         {isSaving ? "Saving…" : "Create Task"}
       </button>
@@ -243,6 +249,19 @@
     background: var(--b3-theme-surface-lighter);
     color: var(--b3-theme-on-surface);
     cursor: pointer;
+  }
+
+  .quick-add-card__advanced {
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--b3-border-color);
+    background: var(--b3-theme-surface);
+    color: var(--b3-theme-primary);
+    cursor: pointer;
+  }
+
+  .quick-add-card__advanced:hover {
+    background: var(--b3-theme-surface-lighter);
   }
 
   .quick-add-card__save {

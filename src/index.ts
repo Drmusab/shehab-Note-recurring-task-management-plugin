@@ -2,6 +2,8 @@ import { Plugin } from "siyuan";
 import { mount, unmount } from "svelte";
 import Dashboard from "./components/Dashboard.svelte";
 import QuickAddOverlay from "./components/cards/QuickAddOverlay.svelte";
+import TaskEditorModal from "./components/TaskEditorModal.svelte";
+import type { Task } from "./core/models/Task";
 import type { Scheduler } from "./core/engine/Scheduler";
 import type { TaskRepositoryProvider } from "./core/storage/TaskRepository";
 import { MigrationManager } from "./core/storage/MigrationManager";
@@ -27,6 +29,8 @@ export default class RecurringTasksPlugin extends Plugin {
   private dockEl!: HTMLElement;
   private quickAddComponent: ReturnType<typeof mount> | null = null;
   private quickAddContainer: HTMLElement | null = null;
+  private taskEditorComponent: ReturnType<typeof mount> | null = null;
+  private taskEditorContainer: HTMLElement | null = null;
   private pendingCompletionTimeouts: Map<string, number> = new Map();
 
   async onload() {
@@ -117,6 +121,7 @@ export default class RecurringTasksPlugin extends Plugin {
     // Destroy dashboard
     this.destroyDashboard();
     this.closeQuickAdd();
+    this.closeTaskEditor();
 
     // Remove event listeners
     this.removeEventListeners();
@@ -324,6 +329,10 @@ export default class RecurringTasksPlugin extends Plugin {
         repository: this.repository,
         prefill,
         onClose: () => this.closeQuickAdd(),
+        onAdvanced: () => {
+          this.closeQuickAdd();
+          this.openTaskEditor();
+        },
       },
     });
   }
@@ -336,6 +345,40 @@ export default class RecurringTasksPlugin extends Plugin {
     if (this.quickAddContainer) {
       this.quickAddContainer.remove();
       this.quickAddContainer = null;
+    }
+  }
+
+  /**
+   * Open the full task editor modal
+   */
+  openTaskEditor(task?: Task) {
+    if (this.taskEditorComponent) {
+      this.closeTaskEditor();
+    }
+    this.taskEditorContainer = document.createElement("div");
+    document.body.appendChild(this.taskEditorContainer);
+    this.taskEditorComponent = mount(TaskEditorModal, {
+      target: this.taskEditorContainer,
+      props: {
+        repository: this.repository,
+        task,
+        onClose: () => this.closeTaskEditor(),
+        onSave: () => {
+          // Refresh dashboard
+          window.dispatchEvent(new CustomEvent("recurring-task-refresh"));
+        },
+      },
+    });
+  }
+
+  private closeTaskEditor() {
+    if (this.taskEditorComponent) {
+      unmount(this.taskEditorComponent);
+      this.taskEditorComponent = null;
+    }
+    if (this.taskEditorContainer) {
+      this.taskEditorContainer.remove();
+      this.taskEditorContainer = null;
     }
   }
 }

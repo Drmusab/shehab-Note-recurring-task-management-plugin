@@ -18,7 +18,7 @@
   import AllTasksTab from "./tabs/AllTasksTab.svelte";
   import TimelineTab from "./tabs/TimelineTab.svelte";
   import AnalyticsTab from "./tabs/AnalyticsTab.svelte";
-  import TaskForm from "./cards/TaskForm.svelte";
+  import TaskEditorModal from "./TaskEditorModal.svelte";
   import Settings from "./settings/Settings.svelte";
 
   interface Props {
@@ -297,7 +297,7 @@
     </div>
   {:else if showTaskForm}
     <div class="dashboard__overlay">
-      <TaskForm task={editingTask} onSave={handleSaveTask} onCancel={handleCancelForm} />
+      <TaskEditorModal task={editingTask} {repository} onSave={handleSaveTask} onClose={handleCancelForm} />
     </div>
   {:else}
     <div class="dashboard__tabs">
