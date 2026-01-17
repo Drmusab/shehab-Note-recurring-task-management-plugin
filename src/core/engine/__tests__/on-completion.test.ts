@@ -40,6 +40,17 @@ describe('OnCompletionHandler', () => {
       expect(result.warnings?.[0]).toContain('no linked block');
     });
 
+    it('should prevent deletion when API is not available (safe default)', async () => {
+      const taskWithBlock = {
+        ...mockTask,
+        linkedBlockId: 'block-123',
+      };
+
+      const result = await handler.execute(taskWithBlock, 'delete');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('nested items');
+    });
+
     it('should prevent deletion when task has nested items', async () => {
       const mockApi = {
         getChildBlocks: async () => [{ id: 'child-1' }],
@@ -98,9 +109,9 @@ describe('OnCompletionHandler', () => {
   });
 
   describe('hasNestedItems', () => {
-    it('should return false when API not available', async () => {
+    it('should return true when API not available (safe default)', async () => {
       const result = await handler.hasNestedItems('block-123');
-      expect(result).toBe(false);
+      expect(result).toBe(true);
     });
 
     it('should return true when children exist', async () => {

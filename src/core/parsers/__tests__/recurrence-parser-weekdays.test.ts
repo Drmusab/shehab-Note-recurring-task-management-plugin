@@ -41,7 +41,10 @@ describe('RecurrenceParser - Weekday Patterns', () => {
       const result = RecurrenceParser.parse('every weekends');
       
       expect(result.isValid).toBe(true);
-      expect(result.frequency.type === 'weekly' && result.frequency.weekdays).toEqual([5, 6]);
+      expect(result.frequency.type).toBe('weekly');
+      if (result.frequency.type === 'weekly') {
+        expect(result.frequency.weekdays).toEqual([5, 6]);
+      }
     });
   });
 

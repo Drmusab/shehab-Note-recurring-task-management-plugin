@@ -101,9 +101,9 @@ export class OnCompletionHandler {
    */
   async hasNestedItems(taskBlockId: string): Promise<boolean> {
     if (!this.siyuanApi || !this.siyuanApi.getChildBlocks) {
-      // If API not available, assume no nested items (safer default)
+      // If API not available, assume has nested items (safer default - prevents deletion)
       logger.warn('SiYuan API not available for nested item check');
-      return false;
+      return true;
     }
 
     try {
