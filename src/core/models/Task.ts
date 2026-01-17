@@ -287,7 +287,24 @@ export function isBlocked(task: Task, allTasks: Task[]): boolean {
   
   // Check if any blocking task is not completed
   const blockingTasks = allTasks.filter(t => task.blockedBy?.includes(t.id));
-  return blockingTasks.some(t => t.status !== 'done' && t.enabled);
+  return blockingTasks.some(t => {
+    // Check new status field first, fallback to enabled for backward compatibility
+    if (t.status) {
+      return t.status !== 'done';
+    }
+    return t.enabled;
+  });
+}
+
+/**
+ * Check if task is active/incomplete (helper for backward compatibility)
+ */
+export function isTaskActive(task: Task): boolean {
+  // Check new status field first, fallback to enabled for backward compatibility
+  if (task.status) {
+    return task.status === 'todo';
+  }
+  return task.enabled;
 }
 
 /**
@@ -296,7 +313,13 @@ export function isBlocked(task: Task, allTasks: Task[]): boolean {
 export function isOverdue(task: Task): boolean {
   const now = new Date();
   const dueDate = new Date(task.dueAt);
-  return dueDate < now && task.status !== 'done' && task.status !== 'cancelled';
+  
+  // Task must be active/incomplete to be overdue
+  if (!isTaskActive(task)) {
+    return false;
+  }
+  
+  return dueDate < now;
 }
 
 /**

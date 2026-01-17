@@ -12,6 +12,10 @@
   import RecurrenceInput from "./ui/RecurrenceInput.svelte";
   import DependencyPicker from "./ui/DependencyPicker.svelte";
 
+  const DEFAULT_RECURRENCE_TEXT = "every day";
+  const LABEL_BLOCKED_BY = "Blocked by (tasks that must complete first)";
+  const LABEL_BLOCKS = "Blocks (tasks that depend on this)";
+
   interface Props {
     repository: TaskRepositoryProvider;
     task?: Task;
@@ -31,7 +35,7 @@
   let dueAt = $state(task?.dueAt ? new Date(task.dueAt).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16));
   let scheduledAt = $state(task?.scheduledAt ? new Date(task.scheduledAt).toISOString().slice(0, 16) : "");
   let startAt = $state(task?.startAt ? new Date(task.startAt).toISOString().slice(0, 16) : "");
-  let recurrenceText = $state(task?.recurrenceText || (task?.frequency ? RecurrenceParser.stringify(task.frequency) : "every day"));
+  let recurrenceText = $state(task?.recurrenceText || (task?.frequency ? RecurrenceParser.stringify(task.frequency) : DEFAULT_RECURRENCE_TEXT));
   let recurrenceFrequency = $state<Frequency | null>(task?.frequency || null);
   let recurrenceValid = $state(true);
   let blockedBy = $state<string[]>(task?.blockedBy || []);
@@ -294,7 +298,7 @@
           selected={blockedBy}
           excludeId={task?.id}
           onchange={handleBlockedByChange}
-          label="Blocked by (tasks that must complete first)"
+          label={LABEL_BLOCKED_BY}
         />
       </div>
 
@@ -305,7 +309,7 @@
           selected={dependsOn}
           excludeId={task?.id}
           onchange={handleDependsOnChange}
-          label="Blocks (tasks that depend on this)"
+          label={LABEL_BLOCKS}
         />
       </div>
 
