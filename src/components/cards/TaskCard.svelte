@@ -278,9 +278,9 @@
               <div class="task-card__block-preview-html">
                 {@html blockPreviewHtml}
               </div>
-            {: else if blockPreview}
+            {:else if blockPreview}
               {blockPreviewText}
-            {: else}
+            {:else}
               No preview available. 
             {/if}
           </div>
@@ -407,7 +407,7 @@
     margin-bottom: 12px;
   }
 
-  . task-card__title-row {
+  .task-card__title-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -461,7 +461,7 @@
     margin-bottom: 6px;
   }
 
-  . task-card__label {
+  .task-card__label {
     color: var(--b3-theme-on-surface-light);
     margin-right: 8px;
   }
@@ -531,3 +531,4 @@
     flex-direction: column;
     gap: 6px;
   
+  }

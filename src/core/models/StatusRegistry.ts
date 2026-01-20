@@ -26,6 +26,21 @@ export class StatusRegistry {
     this.statuses.set(status.symbol, status);
   }
 
+  /**
+   * Register a custom status
+   * Alias for add() for consistency with spec
+   */
+  register(status: Status): void {
+    this.add(status);
+  }
+
+  /**
+   * Unregister a custom status
+   */
+  unregister(symbol: string): void {
+    this.statuses.delete(symbol);
+  }
+
   get(symbol: string): Status {
     const status = this.statuses.get(symbol);
     if (status) return status;
@@ -43,8 +58,18 @@ export class StatusRegistry {
     return this.get(current.nextStatusSymbol);
   }
 
+  /**
+   * Get all registered statuses
+   */
   getAllStatuses(): Status[] {
     return Array.from(this.statuses.values());
+  }
+
+  /**
+   * Alias for getAllStatuses for consistency with spec
+   */
+  getAll(): Status[] {
+    return this.getAllStatuses();
   }
 
   /** Reset to defaults (for testing) */

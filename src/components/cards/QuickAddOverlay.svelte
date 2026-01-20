@@ -185,7 +185,7 @@
     margin-bottom: 16px;
   }
 
-  . quick-add-card__header h2 {
+  .quick-add-card__header h2 {
     margin: 0;
     font-size: 18px;
     color: var(--b3-theme-on-surface);
@@ -232,7 +232,7 @@
     margin-bottom: 14px;
   }
 
-  . quick-add-card__linked span {
+  .quick-add-card__linked span {
     color: var(--b3-theme-on-surface);
   }
 
@@ -242,7 +242,7 @@
     gap: 10px;
   }
 
-  . quick-add-card__cancel {
+  .quick-add-card__cancel {
     padding: 8px 14px;
     border-radius:  6px;
     border:  1px solid var(--b3-border-color);

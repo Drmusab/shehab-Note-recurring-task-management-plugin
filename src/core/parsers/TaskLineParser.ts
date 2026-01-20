@@ -3,6 +3,7 @@ import { Status, StatusType } from '@/core/models/Status';
 import { StatusRegistry } from '@/core/models/StatusRegistry';
 import { EMOJI_SIGNIFIERS, type TaskFormat } from '@/utils/signifiers';
 import { DateParser } from '@/core/parsers/DateParser';
+import { GlobalFilter } from '@/core/filtering/GlobalFilter';
 
 export interface ParsedTaskLine {
   task: Partial<Task> | null;
@@ -22,16 +23,18 @@ export interface ParsedTaskLine {
 export class TaskLineParser {
   private format: TaskFormat;
   private registry: StatusRegistry;
+  private globalFilter: GlobalFilter;
 
   constructor(format: TaskFormat = 'emoji') {
     this.format = format;
     this.registry = StatusRegistry.getInstance();
+    this.globalFilter = GlobalFilter.getInstance();
   }
 
   /**
    * Parse a task line into a Task object
    */
-  parse(line: string): ParsedTaskLine {
+  parse(line: string, filePath?: string): ParsedTaskLine {
     const originalLine = line;
     const unknownFields: string[] = [];
 
@@ -53,10 +56,25 @@ export class TaskLineParser {
     const statusSymbol = checkboxMatch[2];
     let content = checkboxMatch[3];
 
+    // Check global filter AFTER extracting status symbol for better debugging
+    if (!this.globalFilter.shouldTreatAsTask(line, filePath)) {
+      return {
+        task: null,
+        isValid: false,
+        isTask: false,
+        error: 'Excluded by global filter',
+        unknownFields: [],
+        originalLine,
+        statusSymbol,  // Now includes actual status symbol
+        description: content.trim(),
+      };
+    }
+
     const status = this.registry.get(statusSymbol);
     const task: Partial<Task> = {
       enabled: status.type === StatusType.TODO || status.type === StatusType.IN_PROGRESS,
       status: this.mapStatusType(status.type),
+      path: filePath,
     };
 
     // Extract metadata based on format
