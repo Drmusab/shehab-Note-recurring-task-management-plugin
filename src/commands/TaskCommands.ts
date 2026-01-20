@@ -19,6 +19,13 @@ export class TaskCommands {
   ) {}
 
   /**
+   * Get current settings or undefined if not available
+   */
+  private get settings(): PluginSettings | undefined {
+    return this.getSettings?.();
+  }
+
+  /**
    * Toggle task status - cycle through status types
    */
   async toggleStatus(taskId: string): Promise<void> {
@@ -42,8 +49,7 @@ export class TaskCommands {
         updatedTask.status = "done";
         
         // Auto-add done date if enabled in settings
-        const settings = this.getSettings?.();
-        if (settings?.dates.autoAddDone && !updatedTask.doneAt) {
+        if (this.settings?.dates.autoAddDone && !updatedTask.doneAt) {
           updatedTask.doneAt = new Date().toISOString();
         }
         
@@ -55,8 +61,7 @@ export class TaskCommands {
         updatedTask.status = "cancelled";
         
         // Auto-add cancelled date if enabled in settings
-        const settings = this.getSettings?.();
-        if (settings?.dates.autoAddCancelled && !updatedTask.cancelledAt) {
+        if (this.settings?.dates.autoAddCancelled && !updatedTask.cancelledAt) {
           updatedTask.cancelledAt = new Date().toISOString();
         }
       } else if (newStatus.type === "TODO") {
@@ -89,8 +94,7 @@ export class TaskCommands {
       };
       
       // Auto-add done date if enabled in settings
-      const settings = this.getSettings?.();
-      if (settings?.dates.autoAddDone && !updatedTask.doneAt) {
+      if (this.settings?.dates.autoAddDone && !updatedTask.doneAt) {
         updatedTask.doneAt = new Date().toISOString();
       }
 

@@ -26,8 +26,8 @@ export class SettingsService {
   async load(): Promise<void> {
     try {
       const data = await this.plugin.loadData(PLUGIN_SETTINGS_KEY);
-      if (data) {
-        this.settings = mergeSettings(data);
+      if (data && typeof data === 'object') {
+        this.settings = mergeSettings(data as Partial<PluginSettings>);
       }
     } catch (err) {
       console.error("Failed to load plugin settings:", err);
@@ -53,7 +53,7 @@ export class SettingsService {
    * Update specific settings
    */
   async update(partial: Partial<PluginSettings>): Promise<void> {
-    this.settings = mergeSettings({ ...this.settings, ...partial });
+    this.settings = mergeSettings(partial);
     await this.plugin.saveData(PLUGIN_SETTINGS_KEY, this.settings);
   }
 }
