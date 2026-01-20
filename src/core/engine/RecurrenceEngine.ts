@@ -43,7 +43,7 @@ export class RecurrenceEngine {
    * Calculate the next occurrence date based on frequency
    * @param currentDue Current due date
    * @param frequency Recurrence rule
-   * @param options Optional configuration (completionDate for "when done", whenDone flag)
+   * @param options Optional configuration (completionDate for "when done", whenDone flag override)
    * @returns Next occurrence date
    */
   calculateNext(
@@ -51,8 +51,12 @@ export class RecurrenceEngine {
     frequency: Frequency,
     options?: { completionDate?: Date; whenDone?: boolean }
   ): Date {
+    // Determine base date: use whenDone from options (if provided), 
+    // then from frequency object, defaulting to false
+    const whenDone = options?.whenDone ?? frequency.whenDone ?? false;
+    
     // If whenDone is true and completionDate provided, calculate from completion date
-    const baseDate = (options?.whenDone && options?.completionDate) 
+    const baseDate = (whenDone && options?.completionDate) 
       ? options.completionDate 
       : currentDue;
 
