@@ -6,7 +6,7 @@
   import { toast } from "@/utils/notifications";
 
   interface Prefill {
-    suggestedName?: string;
+    suggestedName?:  string;
     linkedBlockId?: string;
     linkedBlockContent?: string;
     suggestedTime?: string | null;
@@ -20,32 +20,28 @@
   }
 
   let { repository, onClose, prefill, onAdvanced }: Props = $props();
-  const repositoryRef = $derived(repository);
-  const closeHandler = $derived(onClose);
-  const prefillData = $derived(prefill);
-  const advancedHandler = $derived(onAdvanced);
 
   // Initialize with prefill value - it's used once at component creation
-  let name = $state(prefillData?.suggestedName ?? "");
+  let name = $state(prefill?.suggestedName ??  "");
   let dueAt = $state(new Date().toISOString().slice(0, 16));
-  let touched = $state({ name: false, dueAt: false });
+  let touched = $state({ name: false, dueAt:  false });
   let isSaving = $state(false);
-  let nameInput: HTMLInputElement | null = $state(null);
+  let nameInput:  HTMLInputElement | null = $state(null);
 
   const nameError = $derived(
-    touched.name && !name.trim() ? "Task name is required." : ""
+    touched.name && ! name.trim() ? "Task name is required." : ""
   );
   const dueAtError = $derived(
-    !touched.dueAt ? "" :
-    !dueAt ? "Due date and time are required." :
-    Number.isNaN(new Date(dueAt).getTime()) ? "Enter a valid date and time." : ""
+    ! touched.dueAt ?  "" : 
+    ! dueAt ?  "Due date and time are required." : 
+    Number. isNaN(new Date(dueAt).getTime()) ? "Enter a valid date and time." :  ""
   );
-  const hasErrors = $derived(!!(nameError || dueAtError));
+  const hasErrors = $derived(! !(nameError || dueAtError));
 
   onMount(() => {
-    if (prefillData?.suggestedTime) {
+    if (prefill?. suggestedTime) {
       const now = new Date();
-      const [hours, minutes] = prefillData.suggestedTime.split(":").map(Number);
+      const [hours, minutes] = prefill. suggestedTime.split(":").map(Number);
       now.setHours(hours, minutes, 0, 0);
       dueAt = now.toISOString().slice(0, 16);
     }
@@ -62,23 +58,23 @@
     }
 
     const frequency = createDefaultFrequency();
-    const timeValue = dueAt.slice(11, 16);
+    const timeValue = dueAt. slice(11, 16);
     frequency.time = timeValue;
-    if (!isValidFrequency(frequency)) {
+    if (! isValidFrequency(frequency)) {
       toast.error("Invalid frequency configuration.");
       return;
     }
 
-    const task = createTask(name.trim(), frequency, new Date(dueAt));
-    task.linkedBlockId = prefillData?.linkedBlockId || undefined;
-    task.linkedBlockContent = prefillData?.linkedBlockContent || undefined;
+    const task = createTask(name. trim(), frequency, new Date(dueAt));
+    task.linkedBlockId = prefill?. linkedBlockId || undefined;
+    task.linkedBlockContent = prefill?.linkedBlockContent || undefined;
 
     isSaving = true;
     try {
-      await repositoryRef.saveTask(task);
+      await repository.saveTask(task);
       toast.success(`Task "${task.name}" created`);
       window.dispatchEvent(new CustomEvent("recurring-task-refresh"));
-      closeHandler();
+      onClose();
     } catch (err) {
       toast.error("Failed to create task: " + err);
     } finally {
@@ -88,7 +84,7 @@
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
-      closeHandler();
+      onClose();
     }
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
@@ -101,7 +97,7 @@
   <div class="quick-add-card" role="document">
     <div class="quick-add-card__header">
       <h2 id="quick-add-title">Quick Add</h2>
-      <button class="quick-add-card__close" type="button" onclick={closeHandler} aria-label="Close">
+      <button class="quick-add-card__close" type="button" onclick={onClose} aria-label="Close">
         ✕
       </button>
     </div>
@@ -114,7 +110,7 @@
         type="text"
         bind:value={name}
         placeholder="e.g. Review daily notes"
-        aria-invalid={!!nameError}
+        aria-invalid={!! nameError}
         oninput={() => (touched.name = true)}
         onblur={() => (touched.name = true)}
       />
@@ -138,27 +134,27 @@
       {/if}
     </div>
 
-    {#if prefillData?.linkedBlockId}
+    {#if prefill?.linkedBlockId}
       <div class="quick-add-card__linked">
-        Linked block: <span>{prefillData.linkedBlockId}</span>
+        Linked block: <span>{prefill.linkedBlockId}</span>
       </div>
     {/if}
 
     <div class="quick-add-card__actions">
-      <button class="quick-add-card__cancel" type="button" onclick={closeHandler}>
+      <button class="quick-add-card__cancel" type="button" onclick={onClose}>
         Cancel
       </button>
-      {#if advancedHandler}
-        <button class="quick-add-card__advanced" type="button" onclick={advancedHandler}>
-          Advanced...
+      {#if onAdvanced}
+        <button class="quick-add-card__advanced" type="button" onclick={onAdvanced}>
+          Advanced... 
         </button>
       {/if}
       <button class="quick-add-card__save" type="button" onclick={handleSave} disabled={isSaving}>
-        {isSaving ? "Saving…" : "Create Task"}
+        {isSaving ?  "Saving…" : "Create Task"}
       </button>
     </div>
 
-    <p class="quick-add-card__hint">Tip: Press ⌘/Ctrl + Enter to save.</p>
+    <p class="quick-add-card__hint">Tip: Press ⌘/Ctrl + Enter to save. </p>
   </div>
 </div>
 
@@ -179,17 +175,17 @@
     background: var(--b3-theme-surface);
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    box-shadow:  0 8px 30px rgba(0, 0, 0, 0.25);
   }
 
   .quick-add-card__header {
-    display: flex;
+    display:  flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
   }
 
-  .quick-add-card__header h2 {
+  . quick-add-card__header h2 {
     margin: 0;
     font-size: 18px;
     color: var(--b3-theme-on-surface);
@@ -236,7 +232,7 @@
     margin-bottom: 14px;
   }
 
-  .quick-add-card__linked span {
+  . quick-add-card__linked span {
     color: var(--b3-theme-on-surface);
   }
 
@@ -246,10 +242,10 @@
     gap: 10px;
   }
 
-  .quick-add-card__cancel {
+  . quick-add-card__cancel {
     padding: 8px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--b3-border-color);
+    border-radius:  6px;
+    border:  1px solid var(--b3-border-color);
     background: var(--b3-theme-surface-lighter);
     color: var(--b3-theme-on-surface);
     cursor: pointer;
@@ -270,8 +266,8 @@
 
   .quick-add-card__save {
     padding: 8px 14px;
-    border-radius: 6px;
-    border: none;
+    border-radius:  6px;
+    border:  none;
     background: var(--b3-theme-primary);
     color: white;
     cursor: pointer;
@@ -284,7 +280,7 @@
 
   .quick-add-card__hint {
     margin-top: 14px;
-    font-size: 12px;
+    font-size:  12px;
     color: var(--b3-theme-on-surface-light);
   }
 </style>
