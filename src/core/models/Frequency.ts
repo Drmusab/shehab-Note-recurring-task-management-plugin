@@ -18,6 +18,8 @@ export type Frequency =
       anchorDate?: string;
       /** Optional IANA timezone identifier */
       timezone?: string;
+      /** Calculate next occurrence from completion date instead of due date */
+      whenDone?: boolean;
     }
   | {
       /** Type of recurrence */
@@ -32,6 +34,8 @@ export type Frequency =
       anchorDate?: string;
       /** Optional IANA timezone identifier */
       timezone?: string;
+      /** Calculate next occurrence from completion date instead of due date */
+      whenDone?: boolean;
     }
   | {
       /** Type of recurrence */
@@ -46,6 +50,8 @@ export type Frequency =
       anchorDate?: string;
       /** Optional IANA timezone identifier */
       timezone?: string;
+      /** Calculate next occurrence from completion date instead of due date */
+      whenDone?: boolean;
     }
   | {
       /** Type of recurrence */
@@ -62,6 +68,8 @@ export type Frequency =
       anchorDate?: string;
       /** Optional IANA timezone identifier */
       timezone?: string;
+      /** Calculate next occurrence from completion date instead of due date */
+      whenDone?: boolean;
     };
 
 /**

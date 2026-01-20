@@ -5,6 +5,7 @@
 import type { Plugin } from "siyuan";
 import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
 import type { RecurrenceEngine } from "@/core/engine/RecurrenceEngine";
+import type { PluginSettings } from "@/core/settings/PluginSettings";
 import { createTask } from "@/core/models/Task";
 import { pluginEventBus } from "@/core/events/PluginEventBus";
 import { TaskCommands } from "@/commands/TaskCommands";
@@ -16,9 +17,10 @@ import * as logger from "@/utils/logger";
 export function registerCommands(
   plugin: Plugin,
   repository: TaskRepositoryProvider,
-  recurrenceEngine?: RecurrenceEngine
+  recurrenceEngine?: RecurrenceEngine,
+  getSettings?: () => PluginSettings
 ): void {
-  const taskCommands = new TaskCommands(repository, recurrenceEngine);
+  const taskCommands = new TaskCommands(repository, recurrenceEngine, getSettings);
 
   // Slash command: /task or /recurring - Create recurring task from selection
   plugin.addCommand({

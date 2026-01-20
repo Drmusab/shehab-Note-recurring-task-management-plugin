@@ -52,13 +52,26 @@ export class RecurrenceParser {
       };
     }
 
-    const rest = everyMatch[1];
+    let rest = everyMatch[1];
+    
+    // Check for "when done" or "when due" suffix
+    let whenDone: boolean | undefined = undefined;
+    const whenDoneMatch = rest.match(/^(.+?)\s+when\s+done$/);
+    const whenDueMatch = rest.match(/^(.+?)\s+when\s+due$/);
+    
+    if (whenDoneMatch) {
+      rest = whenDoneMatch[1];
+      whenDone = true;
+    } else if (whenDueMatch) {
+      rest = whenDueMatch[1];
+      whenDone = false;
+    }
 
     // Try to parse "weekday" or "weekend" pattern
     if (rest === 'weekday' || rest === 'weekdays') {
       // Monday=0 to Friday=4
       return {
-        frequency: { type: "weekly", interval: 1, weekdays: [0, 1, 2, 3, 4] },
+        frequency: { type: "weekly", interval: 1, weekdays: [0, 1, 2, 3, 4], whenDone },
         raw,
         isValid: true,
       };
@@ -67,7 +80,7 @@ export class RecurrenceParser {
     if (rest === 'weekend' || rest === 'weekends') {
       // Saturday=5, Sunday=6
       return {
-        frequency: { type: "weekly", interval: 1, weekdays: [5, 6] },
+        frequency: { type: "weekly", interval: 1, weekdays: [5, 6], whenDone },
         raw,
         isValid: true,
       };
@@ -78,7 +91,7 @@ export class RecurrenceParser {
     if (dailyMatch) {
       const interval = dailyMatch[1] ? parseInt(dailyMatch[1]) : 1;
       return {
-        frequency: { type: "daily", interval },
+        frequency: { type: "daily", interval, whenDone },
         raw,
         isValid: true,
       };
@@ -93,7 +106,7 @@ export class RecurrenceParser {
       if (!daysStr) {
         // No specific days, default to current day of week
         return {
-          frequency: { type: "weekly", interval, weekdays: [1] }, // Default to Monday
+          frequency: { type: "weekly", interval, weekdays: [1], whenDone }, // Default to Monday
           raw,
           isValid: true,
         };
@@ -103,7 +116,7 @@ export class RecurrenceParser {
       const weekdays = this.parseDayNames(daysStr);
       if (weekdays.length === 0) {
         return {
-          frequency: { type: "weekly", interval, weekdays: [1] },
+          frequency: { type: "weekly", interval, weekdays: [1], whenDone },
           raw,
           isValid: false,
           error: "Invalid day names",
@@ -111,7 +124,7 @@ export class RecurrenceParser {
       }
 
       return {
-        frequency: { type: "weekly", interval, weekdays },
+        frequency: { type: "weekly", interval, weekdays, whenDone },
         raw,
         isValid: true,
       };
@@ -125,7 +138,7 @@ export class RecurrenceParser {
 
       if (dayOfMonth < 1 || dayOfMonth > 31) {
         return {
-          frequency: { type: "monthly", interval, dayOfMonth: 1 },
+          frequency: { type: "monthly", interval, dayOfMonth: 1, whenDone },
           raw,
           isValid: false,
           error: "Day of month must be between 1 and 31",
@@ -133,7 +146,7 @@ export class RecurrenceParser {
       }
 
       return {
-        frequency: { type: "monthly", interval, dayOfMonth },
+        frequency: { type: "monthly", interval, dayOfMonth, whenDone },
         raw,
         isValid: true,
       };
@@ -144,14 +157,14 @@ export class RecurrenceParser {
     if (yearlyMatch) {
       const interval = yearlyMatch[1] ? parseInt(yearlyMatch[1]) : 1;
       return {
-        frequency: { type: "yearly", interval, month: 0, dayOfMonth: 1 },
+        frequency: { type: "yearly", interval, month: 0, dayOfMonth: 1, whenDone },
         raw,
         isValid: true,
       };
     }
 
     return {
-      frequency: { type: "daily", interval: 1 },
+      frequency: { type: "daily", interval: 1, whenDone },
       raw,
       isValid: false,
       error: "Unrecognized recurrence pattern",
@@ -164,34 +177,47 @@ export class RecurrenceParser {
   static stringify(frequency: Frequency): string {
     const interval = frequency.interval;
     const intervalStr = interval > 1 ? `${interval} ` : "";
+    let baseStr: string;
 
     switch (frequency.type) {
       case "daily":
-        return interval === 1 ? "every day" : `every ${interval} days`;
+        baseStr = interval === 1 ? "every day" : `every ${interval} days`;
+        break;
 
       case "weekly": {
         const weekStr = interval === 1 ? "week" : `${interval} weeks`;
         if (frequency.weekdays.length === 0) {
-          return `every ${weekStr}`;
+          baseStr = `every ${weekStr}`;
+        } else {
+          const dayNames = frequency.weekdays.map(d => this.getDayName(d)).join(", ");
+          baseStr = `every ${weekStr} on ${dayNames}`;
         }
-        const dayNames = frequency.weekdays.map(d => this.getDayName(d)).join(", ");
-        return `every ${weekStr} on ${dayNames}`;
+        break;
       }
 
       case "monthly": {
         const monthStr = interval === 1 ? "month" : `${interval} months`;
         const daySuffix = this.getDaySuffix(frequency.dayOfMonth);
-        return `every ${monthStr} on the ${frequency.dayOfMonth}${daySuffix}`;
+        baseStr = `every ${monthStr} on the ${frequency.dayOfMonth}${daySuffix}`;
+        break;
       }
 
       case "yearly": {
         const yearStr = interval === 1 ? "year" : `${interval} years`;
-        return `every ${yearStr}`;
+        baseStr = `every ${yearStr}`;
+        break;
       }
 
       default:
-        return "every day";
+        baseStr = "every day";
     }
+    
+    // Append "when done" if present
+    if (frequency.whenDone) {
+      return `${baseStr} when done`;
+    }
+    
+    return baseStr;
   }
 
   /**

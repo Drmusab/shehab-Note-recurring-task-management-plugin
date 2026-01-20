@@ -3,6 +3,7 @@ import { TaskStorage } from "@/core/storage/TaskStorage";
 import { TaskRepository, type TaskRepositoryProvider } from "@/core/storage/TaskRepository";
 import { Scheduler } from "@/core/engine/Scheduler";
 import { EventService } from "@/services/EventService";
+import { SettingsService } from "@/core/settings/SettingsService";
 import { SCHEDULER_INTERVAL_MS } from "@/utils/constants";
 import * as logger from "@/utils/logger";
 
@@ -20,6 +21,7 @@ export class TaskManager {
   private repository!: TaskRepositoryProvider;
   private scheduler!: Scheduler;
   private eventService!: EventService;
+  private settingsService!: SettingsService;
 
   private constructor(plugin: Plugin) {
     this.plugin = plugin;
@@ -48,6 +50,10 @@ export class TaskManager {
     }
 
     logger.info("Initializing TaskManager");
+
+    // Initialize settings service
+    this.settingsService = new SettingsService(this.plugin);
+    await this.settingsService.load();
 
     // Initialize storage
     this.storage = new TaskStorage(this.plugin);
@@ -146,6 +152,14 @@ export class TaskManager {
   public getEventService(): EventService {
     this.ensureInitialized();
     return this.eventService;
+  }
+
+  /**
+   * Get the settings service instance
+   */
+  public getSettingsService(): SettingsService {
+    this.ensureInitialized();
+    return this.settingsService;
   }
 
   /**

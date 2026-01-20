@@ -58,6 +58,7 @@ export default class RecurringTasksPlugin extends Plugin {
     this.repository = this.taskManager.getRepository();
     this.scheduler = this.taskManager.getScheduler();
     this.eventService = this.taskManager.getEventService();
+    const settingsService = this.taskManager.getSettingsService();
 
     // Start scheduler and recover missed tasks
     try {
@@ -67,7 +68,12 @@ export default class RecurringTasksPlugin extends Plugin {
     }
 
     // Register slash commands and hotkeys
-    registerCommands(this, this.repository, this.scheduler.getRecurrenceEngine());
+    registerCommands(
+      this, 
+      this.repository, 
+      this.scheduler.getRecurrenceEngine(),
+      () => settingsService.get()
+    );
 
     // Register block context menu
     registerBlockMenu(this);
