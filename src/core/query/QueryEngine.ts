@@ -17,6 +17,7 @@ import { PathFilter } from './filters/PathFilter';
 import { IsBlockedFilter, IsBlockingFilter, type DependencyGraph } from './filters/DependencyFilter';
 import { RecurrenceFilter } from './filters/RecurrenceFilter';
 import { AndFilter, OrFilter, NotFilter } from './filters/BooleanFilter';
+import { DescriptionFilter } from './filters/DescriptionFilter';
 import { Grouper } from './groupers/GrouperBase';
 import { DueDateGrouper, ScheduledDateGrouper } from './groupers/DateGrouper';
 import { StatusTypeGrouper, StatusNameGrouper } from './groupers/StatusGrouper';
@@ -110,6 +111,25 @@ export class QueryEngine {
   }
 
   /**
+   * Validate query without executing
+   */
+  validateQuery(queryString: string): { valid: boolean; error?: string; parsedFilters?: string[] } {
+    try {
+      const parser = new QueryParser();
+      const ast = parser.parse(queryString);
+      return {
+        valid: true,
+        parsedFilters: ast.filters.map(f => `${f.type}:${f.operator}`)
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
+  /**
    * Apply filters to task list (chainable)
    */
   private applyFilters(tasks: Task[], filters: FilterNode[]): Task[] {
@@ -178,6 +198,13 @@ export class QueryEngine {
 
       case 'recurrence':
         return new RecurrenceFilter(!node.value);
+
+      case 'description':
+        return new DescriptionFilter(
+          node.operator as 'includes' | 'does not include' | 'regex',
+          node.value,
+          node.negate
+        );
 
       case 'boolean':
         if (node.operator === 'AND' && node.left && node.right) {

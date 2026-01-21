@@ -27,10 +27,12 @@
     "not done",
     "due today",
     "priority high",
-    "status.type IN_PROGRESS",
+    "description includes meeting",
     "not done AND due before tomorrow",
-    "has tags",
-    "done after 7 days ago",
+    "tag includes #work",
+    "is recurring",
+    "is blocked",
+    "sort by priority",
     "not done GROUP BY priority",
   ];
 
