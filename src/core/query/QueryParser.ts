@@ -16,7 +16,7 @@ export interface QueryAST {
 }
 
 export interface FilterNode {
-  type: 'status' | 'date' | 'priority' | 'tag' | 'path' | 'dependency' | 'recurrence' | 'boolean' | 'done' | 'description';
+  type: 'status' | 'date' | 'priority' | 'urgency' | 'tag' | 'path' | 'dependency' | 'recurrence' | 'boolean' | 'done' | 'description';
   operator: string;
   value: any;
   negate?: boolean;
@@ -155,6 +155,20 @@ export class QueryParser {
     if (line.startsWith('priority below ')) {
       const level = line.substring('priority below '.length).trim();
       return { type: 'priority', operator: 'below', value: level as PriorityLevel };
+    }
+
+    // Urgency filters
+    if (line.startsWith('urgency is ')) {
+      const value = line.substring('urgency is '.length).trim();
+      return { type: 'urgency', operator: 'is', value: this.parseNumericValue(value, 'urgency') };
+    }
+    if (line.startsWith('urgency above ')) {
+      const value = line.substring('urgency above '.length).trim();
+      return { type: 'urgency', operator: 'above', value: this.parseNumericValue(value, 'urgency') };
+    }
+    if (line.startsWith('urgency below ')) {
+      const value = line.substring('urgency below '.length).trim();
+      return { type: 'urgency', operator: 'below', value: this.parseNumericValue(value, 'urgency') };
     }
 
     // Tag filters
@@ -347,6 +361,19 @@ export class QueryParser {
           'Valid types: TODO, IN_PROGRESS, DONE, CANCELLED, NON_TASK'
         );
     }
+  }
+
+  private parseNumericValue(value: string, field: string): number {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      throw new QuerySyntaxError(
+        `Invalid ${field} value: "${value}"`,
+        this.line,
+        this.column,
+        `Use a numeric ${field} value (e.g., "${field} above 75")`
+      );
+    }
+    return parsed;
   }
 
   private unquote(str: string): string {

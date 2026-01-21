@@ -1,5 +1,8 @@
 import type { Task } from '@/core/models/Task';
 import { normalizePriority } from '@/core/models/Task';
+import { calculateUrgencyScore } from '@/core/urgency/UrgencyScoreCalculator';
+import type { UrgencySettings } from '@/core/urgency/UrgencySettings';
+import { DEFAULT_URGENCY_SETTINGS } from '@/core/urgency/UrgencySettings';
 import type { QueryAST, FilterNode, SortNode, GroupNode } from './QueryParser';
 import { QueryParser } from './QueryParser';
 import { QueryExecutionError } from './QueryError';
@@ -19,6 +22,7 @@ import { IsBlockedFilter, IsBlockingFilter, type DependencyGraph } from './filte
 import { RecurrenceFilter } from './filters/RecurrenceFilter';
 import { AndFilter, OrFilter, NotFilter } from './filters/BooleanFilter';
 import { DescriptionFilter } from './filters/DescriptionFilter';
+import { UrgencyFilter, type UrgencyComparator } from './filters/UrgencyFilter';
 import { Grouper } from './groupers/GrouperBase';
 import { DueDateGrouper, ScheduledDateGrouper } from './groupers/DateGrouper';
 import { StatusTypeGrouper, StatusNameGrouper } from './groupers/StatusGrouper';
@@ -45,8 +49,14 @@ export interface TaskIndex {
 export class QueryEngine {
   private dependencyGraph: DependencyGraph | null = null;
   private globalFilterAST: QueryAST | null = null;
+  private urgencySettings: UrgencySettings;
 
-  constructor(private taskIndex: TaskIndex) {}
+  constructor(
+    private taskIndex: TaskIndex,
+    options: { urgencySettings?: UrgencySettings } = {}
+  ) {
+    this.urgencySettings = options.urgencySettings ?? DEFAULT_URGENCY_SETTINGS;
+  }
 
   /**
    * Set dependency graph for dependency filters
@@ -79,6 +89,7 @@ export class QueryEngine {
    */
   execute(query: QueryAST): QueryResult {
     const startTime = performance.now();
+    const referenceDate = new Date();
 
     try {
       // Generate explanation if requested
@@ -90,17 +101,17 @@ export class QueryEngine {
 
       // Apply global filter first if configured
       if (this.globalFilterAST && this.globalFilterAST.filters.length > 0) {
-        tasks = this.applyFilters(tasks, this.globalFilterAST.filters);
+        tasks = this.applyFilters(tasks, this.globalFilterAST.filters, referenceDate);
       }
 
       // Apply query filters
       if (query.filters.length > 0) {
-        tasks = this.applyFilters(tasks, query.filters);
+        tasks = this.applyFilters(tasks, query.filters, referenceDate);
       }
 
       // Apply sorting
       if (query.sort) {
-        tasks = this.applySort(tasks, query.sort);
+        tasks = this.applySort(tasks, query.sort, referenceDate);
       }
 
       // Apply limit
@@ -163,11 +174,11 @@ export class QueryEngine {
   /**
    * Apply filters to task list (chainable)
    */
-  private applyFilters(tasks: Task[], filters: FilterNode[]): Task[] {
+  private applyFilters(tasks: Task[], filters: FilterNode[], referenceDate: Date): Task[] {
     let result = tasks;
 
     for (const filterNode of filters) {
-      const filter = this.createFilter(filterNode);
+      const filter = this.createFilter(filterNode, referenceDate);
       result = result.filter(task => filter.matches(task));
     }
 
@@ -177,7 +188,7 @@ export class QueryEngine {
   /**
    * Create a filter from a filter node
    */
-  private createFilter(node: FilterNode): Filter {
+  private createFilter(node: FilterNode, referenceDate: Date): Filter {
     switch (node.type) {
       case 'done':
         return node.value ? new DoneFilter() : new NotDoneFilter();
@@ -207,6 +218,14 @@ export class QueryEngine {
         return new PriorityFilter(
           node.operator as 'is' | 'above' | 'below',
           node.value as PriorityLevel
+        );
+
+      case 'urgency':
+        return new UrgencyFilter(
+          node.operator as UrgencyComparator,
+          node.value as number,
+          referenceDate,
+          this.urgencySettings
         );
 
       case 'tag':
@@ -239,11 +258,17 @@ export class QueryEngine {
 
       case 'boolean':
         if (node.operator === 'AND' && node.left && node.right) {
-          return new AndFilter(this.createFilter(node.left), this.createFilter(node.right));
+          return new AndFilter(
+            this.createFilter(node.left, referenceDate),
+            this.createFilter(node.right, referenceDate)
+          );
         } else if (node.operator === 'OR' && node.left && node.right) {
-          return new OrFilter(this.createFilter(node.left), this.createFilter(node.right));
+          return new OrFilter(
+            this.createFilter(node.left, referenceDate),
+            this.createFilter(node.right, referenceDate)
+          );
         } else if (node.operator === 'NOT' && node.inner) {
-          return new NotFilter(this.createFilter(node.inner));
+          return new NotFilter(this.createFilter(node.inner, referenceDate));
         }
         throw new QueryExecutionError(`Invalid boolean operator: ${node.operator}`);
 
@@ -255,7 +280,7 @@ export class QueryEngine {
   /**
    * Apply sorting
    */
-  private applySort(tasks: Task[], sort: SortNode): Task[] {
+  private applySort(tasks: Task[], sort: SortNode, referenceDate: Date): Task[] {
     const sorted = [...tasks];
 
     sorted.sort((a, b) => {
@@ -279,6 +304,9 @@ export class QueryEngine {
           break;
         case 'priority':
           comparison = this.comparePriorities(a.priority, b.priority);
+          break;
+        case 'urgency':
+          comparison = this.getUrgencyScore(b, referenceDate) - this.getUrgencyScore(a, referenceDate);
           break;
         case 'status.type':
           comparison = this.compareStatusTypes(a, b);
@@ -333,6 +361,13 @@ export class QueryEngine {
     };
 
     return getStatusWeight(a) - getStatusWeight(b);
+  }
+
+  private getUrgencyScore(task: Task, referenceDate: Date): number {
+    return calculateUrgencyScore(task, {
+      now: referenceDate,
+      settings: this.urgencySettings,
+    });
   }
 
   /**
@@ -416,6 +451,9 @@ export class QueryEngine {
       
       case 'priority':
         return `${negate}Priority ${filter.operator} ${filter.value}`;
+
+      case 'urgency':
+        return `${negate}Urgency ${filter.operator} ${filter.value}`;
       
       case 'tag':
         if (filter.operator === 'includes') {

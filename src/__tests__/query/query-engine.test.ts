@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryEngine, type TaskIndex } from '@/core/query/QueryEngine';
 import { QueryParser } from '@/core/query/QueryParser';
 import type { Task } from '@/core/models/Task';
@@ -134,6 +134,39 @@ describe('QueryEngine', () => {
     });
   });
 
+  describe('Urgency filters', () => {
+    it('should filter by urgency above a threshold', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2024-06-01T08:00:00Z'));
+
+      try {
+        const urgencyTasks: Task[] = [
+          {
+            ...createTask('Urgent', { type: 'daily', interval: 1 }),
+            dueAt: new Date('2024-06-01T12:00:00Z').toISOString(),
+            priority: 'normal',
+          },
+          {
+            ...createTask('Later', { type: 'daily', interval: 1 }),
+            dueAt: new Date('2024-06-10T12:00:00Z').toISOString(),
+            priority: 'normal',
+          },
+        ];
+
+        const urgencyIndex: TaskIndex = {
+          getAllTasks: () => urgencyTasks,
+        };
+        const urgencyEngine = new QueryEngine(urgencyIndex);
+        const result = urgencyEngine.executeString('urgency above 80');
+
+        expect(result.tasks).toHaveLength(1);
+        expect(result.tasks[0].name).toBe('Urgent');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('Tag filters', () => {
     it('should filter by tag includes', () => {
       const result = engine.executeString('tag includes #work');
@@ -195,6 +228,36 @@ describe('QueryEngine', () => {
       const priorities = result.tasks.map(t => t.priority);
       // low < normal < high < highest
       expect(priorities).toEqual(['low', 'normal', 'high', 'highest']);
+    });
+
+    it('should sort by urgency', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2024-06-01T08:00:00Z'));
+
+      try {
+        const urgentTasks: Task[] = [
+          {
+            ...createTask('Due Today', { type: 'daily', interval: 1 }),
+            dueAt: new Date('2024-06-01T12:00:00Z').toISOString(),
+            priority: 'normal',
+          },
+          {
+            ...createTask('Due Later', { type: 'daily', interval: 1 }),
+            dueAt: new Date('2024-06-05T12:00:00Z').toISOString(),
+            priority: 'normal',
+          },
+        ];
+
+        const urgentIndex: TaskIndex = {
+          getAllTasks: () => urgentTasks,
+        };
+        const urgentEngine = new QueryEngine(urgentIndex);
+        const result = urgentEngine.executeString('sort by urgency');
+
+        expect(result.tasks[0].name).toBe('Due Today');
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

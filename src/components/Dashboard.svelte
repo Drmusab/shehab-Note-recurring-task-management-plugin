@@ -3,6 +3,7 @@
   import { duplicateTask, recordMiss, isBlocked, isBlocking, normalizePriority } from "@/core/models/Task";
   import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
   import type { Scheduler } from "@/core/engine/Scheduler";
+  import type { SettingsService } from "@/core/settings/SettingsService";
   import type { EventService } from "@/services/EventService";
   import type { ShortcutManager } from "@/commands/ShortcutManager";
   import { showToast, toast } from "@/utils/notifications";
@@ -15,6 +16,8 @@
     upsertTask,
   } from "./dashboard/taskState";
   import { onDestroy, onMount } from "svelte";
+  import { setContext } from "svelte";
+  import { URGENCY_SETTINGS_CONTEXT_KEY } from "@/core/urgency/UrgencyContext";
   import TodayTab from "./tabs/TodayTab.svelte";
   import AllTasksTab from "./tabs/AllTasksTab.svelte";
   import TimelineTab from "./tabs/TimelineTab.svelte";
@@ -32,9 +35,12 @@
     scheduler: Scheduler;
     eventService: EventService;
     shortcutManager: ShortcutManager | null;
+    settingsService: SettingsService;
   }
 
-  let { repository, scheduler, eventService, shortcutManager }: Props = $props();
+  let { repository, scheduler, eventService, shortcutManager, settingsService }: Props = $props();
+
+  setContext(URGENCY_SETTINGS_CONTEXT_KEY, settingsService.get().urgency);
 
   // Get timezone handler and recurrence engine from scheduler
   // These are simple getters, not reactive state - no need for $derived

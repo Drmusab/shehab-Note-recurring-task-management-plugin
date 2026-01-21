@@ -1,6 +1,7 @@
 import type { Frequency } from "./Frequency";
 import { isValidFrequency } from "./Frequency";
 import { MAX_RECENT_COMPLETIONS, CURRENT_SCHEMA_VERSION } from "@/utils/constants";
+import { calculateUrgencyScore } from "@/core/urgency/UrgencyScoreCalculator";
 
 /**
  * Task entity representing a recurring task
@@ -317,50 +318,11 @@ export function calculateTaskHealth(task: Task): number {
 }
 
 /**
- * Calculate task urgency score (0-100)
- * Based on due date proximity, priority, and recent misses/snoozes.
+ * Calculate task urgency score (configurable range).
+ * Based on due date proximity, priority, and overdue penalties.
  */
 export function calculateTaskUrgency(task: Task, now: Date = new Date()): number {
-  if (!isTaskActive(task)) {
-    return 0;
-  }
-
-  const dueDate = new Date(task.dueAt);
-  if (Number.isNaN(dueDate.getTime())) {
-    return 0;
-  }
-
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const daysUntilDue = (dueDate.getTime() - now.getTime()) / msPerDay;
-
-  let timeScore = 10;
-  if (daysUntilDue < 0) {
-    timeScore = 80 + Math.min(20, Math.abs(daysUntilDue) * 2);
-  } else if (daysUntilDue <= 1) {
-    timeScore = 70;
-  } else if (daysUntilDue <= 3) {
-    timeScore = 55;
-  } else if (daysUntilDue <= 7) {
-    timeScore = 40;
-  } else if (daysUntilDue <= 14) {
-    timeScore = 25;
-  }
-
-  const priority = task.priority ?? "normal";
-  const priorityBoosts: Record<TaskPriority, number> = {
-    lowest: 0,
-    low: 4,
-    normal: 8,
-    medium: 12,
-    high: 16,
-    highest: 20,
-  };
-
-  const missBoost = Math.min(10, (task.missCount || 0) * 2);
-  const snoozeBoost = Math.min(10, (task.snoozeCount || 0) * 2);
-  const score = timeScore + priorityBoosts[priority] + missBoost + snoozeBoost;
-
-  return Math.round(Math.max(0, Math.min(100, score)));
+  return calculateUrgencyScore(task, { now });
 }
 
 /**

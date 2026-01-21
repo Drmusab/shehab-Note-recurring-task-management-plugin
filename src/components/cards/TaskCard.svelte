@@ -1,10 +1,13 @@
 <script lang="ts">
   import type { Task } from "@/core/models/Task";
   import { calculateTaskHealth, normalizePriority } from "@/core/models/Task";
-  import { tick } from "svelte";
+  import { calculateUrgencyScore } from "@/core/urgency/UrgencyScoreCalculator";
+  import type { UrgencySettings } from "@/core/urgency/UrgencySettings";
+  import { tick, getContext } from "svelte";
   import { fetchBlockEmbed, fetchBlockPreview } from "@/utils/blocks";
   import { daysBetween, formatDateTime, isOverdue, isToday } from "@/utils/date";
   import { PRIORITY_COLORS, SNOOZE_OPTIONS } from "@/utils/constants";
+  import { URGENCY_SETTINGS_CONTEXT_KEY } from "@/core/urgency/UrgencyContext";
 
   interface Props {
     task: Task;
@@ -62,6 +65,9 @@
     health >= 50 ? "health--fair" :
     "health--poor"
   );
+
+  const urgencySettings = getContext<UrgencySettings | undefined>(URGENCY_SETTINGS_CONTEXT_KEY);
+  const urgencyScore = $derived(calculateUrgencyScore(task, { settings: urgencySettings }));
 
   let showSnoozeMenu = $state(false);
   let firstSnoozeOption:  HTMLButtonElement | null = $state(null);
@@ -249,6 +255,10 @@
       {#if timezoneHandler}
         <span class="task-card__relative">{relativeTime()}</span>
       {/if}
+    </div>
+    <div class="task-card__urgency" title="Urgency score: {urgencyScore}">
+      <span class="task-card__label">Urgency:</span>
+      <span class="task-card__value">{urgencyScore}</span>
     </div>
 
     {#if task.lastCompletedAt}
@@ -459,7 +469,8 @@
   }
 
   .task-card__due,
-  .task-card__last-completed {
+  .task-card__last-completed,
+  .task-card__urgency {
     margin-bottom: 6px;
   }
 

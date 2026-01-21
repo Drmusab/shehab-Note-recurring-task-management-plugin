@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { QueryParser } from '@/core/query/QueryParser';
 import { QueryEngine } from '@/core/query/QueryEngine';
 import type { Task } from '@/core/models/Task';
+import { createTask } from '@/core/models/Task';
 import { StatusType } from '@/core/models/Status';
 
 describe('Enhanced Query Language Filters', () => {
@@ -169,6 +170,37 @@ describe('Enhanced Query Language Filters', () => {
       
       expect(result.tasks.length).toBe(1);
       expect(result.tasks[0].id).toBe('6');
+    });
+  });
+
+  describe('UrgencyFilter', () => {
+    it('should filter tasks by urgency above a threshold', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2024-01-14T09:00:00Z'));
+
+      try {
+        const parser = new QueryParser();
+        const ast = parser.parse('urgency above 80');
+        const urgencyTasks: Task[] = [
+          {
+            ...createTask('Urgent Task', { type: 'daily', interval: 1 }),
+            dueAt: new Date('2024-01-15T09:00:00Z').toISOString(),
+            priority: 'high',
+          },
+          {
+            ...createTask('Later Task', { type: 'daily', interval: 1 }),
+            dueAt: new Date('2024-01-25T09:00:00Z').toISOString(),
+            priority: 'low',
+          },
+        ];
+        const engine = new QueryEngine({ getAllTasks: () => urgencyTasks });
+        const result = engine.execute(ast);
+
+        expect(result.tasks.length).toBeGreaterThanOrEqual(1);
+        expect(result.tasks[0].name).toBe('Urgent Task');
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

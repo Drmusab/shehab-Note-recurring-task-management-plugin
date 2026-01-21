@@ -4,6 +4,7 @@
 
 import type { FilenameDateConfig } from './FilenameDate';
 import type { GlobalFilterConfig } from './GlobalFilter';
+import { DEFAULT_URGENCY_SETTINGS, type UrgencySettings } from '@/core/urgency/UrgencySettings';
 
 /**
  * Date tracking settings
@@ -62,6 +63,9 @@ export interface PluginSettings {
   
   /** Global task filter (Phase 5) */
   globalFilter: GlobalFilterConfig;
+
+  /** Urgency scoring configuration */
+  urgency: UrgencySettings;
   
   /** Display timezone for date rendering */
   displayTimezone?: string;
@@ -98,6 +102,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     pathPattern: undefined,
     regex: undefined,
   },
+  urgency: DEFAULT_URGENCY_SETTINGS,
 };
 
 /**
@@ -124,6 +129,10 @@ export function mergeSettings(userSettings: Partial<PluginSettings>): PluginSett
     globalFilter: {
       ...DEFAULT_SETTINGS.globalFilter,
       ...userSettings.globalFilter,
+    },
+    urgency: {
+      ...DEFAULT_SETTINGS.urgency,
+      ...userSettings.urgency,
     },
   };
 }

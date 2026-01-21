@@ -4,6 +4,9 @@
   import { QueryParser } from "@/core/query/QueryParser";
   import TaskCard from "../cards/TaskCard.svelte";
   import { toast } from "@/utils/notifications";
+  import type { UrgencySettings } from "@/core/urgency/UrgencySettings";
+  import { getContext } from "svelte";
+  import { URGENCY_SETTINGS_CONTEXT_KEY } from "@/core/urgency/UrgencyContext";
 
   interface Props {
     tasks: Task[];
@@ -36,6 +39,8 @@
     "NOT is blocked",
     "not done AND priority is high AND description includes priority",
     "sort by priority",
+    "sort by urgency",
+    "urgency above 80",
     "group by priority",
   ];
 
@@ -44,7 +49,8 @@
     getAllTasks: () => tasks,
   };
 
-  const queryEngine = new QueryEngine(taskIndex);
+  const urgencySettings = getContext<UrgencySettings | undefined>(URGENCY_SETTINGS_CONTEXT_KEY);
+  const queryEngine = new QueryEngine(taskIndex, { urgencySettings });
 
   function executeQuery() {
     if (!queryInput.trim()) {

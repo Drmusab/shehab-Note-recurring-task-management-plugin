@@ -10,6 +10,7 @@ import type { TaskRepositoryProvider } from "./core/storage/TaskRepository";
 import { MigrationManager } from "./core/storage/MigrationManager";
 import { TaskManager } from "./core/managers/TaskManager";
 import type { EventService } from "./services/EventService";
+import type { SettingsService } from "./core/settings/SettingsService";
 import { registerCommands } from "./plugin/commands";
 import { registerBlockMenu } from "./plugin/menus";
 import { TopbarMenu } from "./plugin/topbar";
@@ -28,6 +29,7 @@ export default class RecurringTasksPlugin extends Plugin {
   private eventService!: EventService;
   private migrationManager!: MigrationManager;
   private topbarMenu!: TopbarMenu;
+  private settingsService!: SettingsService;
   private dashboardComponent: ReturnType<typeof mount> | null = null;
   private dockEl!: HTMLElement;
   private quickAddComponent: ReturnType<typeof mount> | null = null;
@@ -65,6 +67,7 @@ export default class RecurringTasksPlugin extends Plugin {
     this.scheduler = this.taskManager.getScheduler();
     this.eventService = this.taskManager.getEventService();
     const settingsService = this.taskManager.getSettingsService();
+    this.settingsService = settingsService;
 
     // Start scheduler and recover missed tasks
     try {
@@ -161,6 +164,7 @@ export default class RecurringTasksPlugin extends Plugin {
           scheduler: this.scheduler,
           eventService: this.eventService,
           shortcutManager: this.shortcutManager,
+          settingsService: this.settingsService,
         },
       });
     }

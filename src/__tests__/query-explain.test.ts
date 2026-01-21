@@ -154,6 +154,18 @@ describe("Query Explain Mode", () => {
       expect(result.explanation).toContain("#work");
     });
 
+    it("should generate explanation for urgency filter", () => {
+      const taskIndex = new MockTaskIndex();
+      const engine = new QueryEngine(taskIndex);
+      const parser = new QueryParser();
+
+      const ast = parser.parse("urgency above 80\nexplain");
+      const result = engine.execute(ast);
+
+      expect(result.explanation).toBeDefined();
+      expect(result.explanation).toContain("Urgency");
+    });
+
     it("should generate explanation for path filter", () => {
       const taskIndex = new MockTaskIndex();
       const engine = new QueryEngine(taskIndex);
