@@ -74,8 +74,9 @@ export class InlineQueryCache {
   }
 
   /**
-   * Evicts the least recently used entry from the cache
-   * Uses Map's insertion order - first entry is the least recently used
+   * Evicts the least recently used entry from the cache.
+   * LRU order is maintained by moving accessed entries to the end of the Map in get().
+   * The first entry in the Map is always the least recently used.
    */
   private evictLRU(): void {
     const firstKey = this.cache.keys().next().value;

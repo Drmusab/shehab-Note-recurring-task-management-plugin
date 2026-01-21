@@ -123,7 +123,11 @@ export class InlineQueryRenderer {
       checkbox.className = "rt-inline-query__checkbox";
       checkbox.dataset.rtAction = "toggle";
       checkbox.setAttribute("aria-pressed", String(task.status === "done"));
-      checkbox.setAttribute("aria-label", task.status === "done" ? `Mark incomplete: ${task.name}` : `Mark complete: ${task.name}`);
+      // Sanitize task name for aria-label to prevent attribute injection
+      const checkboxLabel = task.status === "done" 
+        ? `Mark incomplete: ${task.name.replace(/"/g, "'")}`
+        : `Mark complete: ${task.name.replace(/"/g, "'")}`;
+      checkbox.setAttribute("aria-label", checkboxLabel);
       checkbox.textContent = task.status === "done" ? "☑" : "☐";
 
       const title = document.createElement("span");
@@ -143,7 +147,8 @@ export class InlineQueryRenderer {
       editButton.type = "button";
       editButton.className = "rt-inline-query__edit";
       editButton.dataset.rtAction = "edit";
-      editButton.setAttribute("aria-label", `Edit task: ${task.name}`);
+      // Sanitize task name for aria-label to prevent attribute injection
+      editButton.setAttribute("aria-label", `Edit task: ${task.name.replace(/"/g, "'")}`);
       editButton.textContent = "Edit";
 
       item.appendChild(checkbox);
@@ -193,7 +198,11 @@ export class InlineQueryRenderer {
       checkbox.className = "rt-inline-query__checkbox";
       checkbox.dataset.rtAction = "toggle";
       checkbox.setAttribute("aria-pressed", String(task.status === "done"));
-      checkbox.setAttribute("aria-label", task.status === "done" ? `Mark incomplete: ${task.name}` : `Mark complete: ${task.name}`);
+      // Sanitize task name for aria-label to prevent attribute injection
+      const ariaLabel = task.status === "done" 
+        ? `Mark incomplete: ${task.name.replace(/"/g, "'")}`
+        : `Mark complete: ${task.name.replace(/"/g, "'")}`;
+      checkbox.setAttribute("aria-label", ariaLabel);
       checkbox.textContent = task.status === "done" ? "☑" : "☐";
       statusCell.appendChild(checkbox);
 
@@ -222,7 +231,8 @@ export class InlineQueryRenderer {
       editButton.type = "button";
       editButton.className = "rt-inline-query__edit";
       editButton.dataset.rtAction = "edit";
-      editButton.setAttribute("aria-label", `Edit task: ${task.name}`);
+      // Sanitize task name for aria-label to prevent attribute injection
+      editButton.setAttribute("aria-label", `Edit task: ${task.name.replace(/"/g, "'")}`);
       editButton.textContent = "Edit";
       actionsCell.appendChild(editButton);
 
