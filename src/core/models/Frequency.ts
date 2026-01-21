@@ -20,6 +20,10 @@ export type Frequency =
       timezone?: string;
       /** Calculate next occurrence from completion date instead of due date */
       whenDone?: boolean;
+      /** RFC 5545 rrule string for complex patterns */
+      rruleString?: string;
+      /** Original natural language input */
+      naturalLanguage?: string;
     }
   | {
       /** Type of recurrence */
@@ -36,6 +40,10 @@ export type Frequency =
       timezone?: string;
       /** Calculate next occurrence from completion date instead of due date */
       whenDone?: boolean;
+      /** RFC 5545 rrule string for complex patterns */
+      rruleString?: string;
+      /** Original natural language input */
+      naturalLanguage?: string;
     }
   | {
       /** Type of recurrence */
@@ -52,6 +60,10 @@ export type Frequency =
       timezone?: string;
       /** Calculate next occurrence from completion date instead of due date */
       whenDone?: boolean;
+      /** RFC 5545 rrule string for complex patterns */
+      rruleString?: string;
+      /** Original natural language input */
+      naturalLanguage?: string;
     }
   | {
       /** Type of recurrence */
@@ -70,6 +82,10 @@ export type Frequency =
       timezone?: string;
       /** Calculate next occurrence from completion date instead of due date */
       whenDone?: boolean;
+      /** RFC 5545 rrule string for complex patterns */
+      rruleString?: string;
+      /** Original natural language input */
+      naturalLanguage?: string;
     };
 
 /**

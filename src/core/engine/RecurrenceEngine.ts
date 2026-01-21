@@ -2,6 +2,7 @@ import type { Frequency } from "@/core/models/Frequency";
 import * as logger from "@/utils/logger";
 import { addDays, addWeeks, setTimeWithFallback, parseTime } from "@/utils/date";
 import { MAX_RECURRENCE_ITERATIONS, MAX_RECOVERY_ITERATIONS } from "@/utils/constants";
+import { RRule, rrulestr } from 'rrule';
 
 /**
  * RecurrenceEngine calculates next occurrence dates based on frequency rules
@@ -51,6 +52,11 @@ export class RecurrenceEngine {
     frequency: Frequency,
     options?: { completionDate?: Date; whenDone?: boolean }
   ): Date {
+    // If frequency has rruleString, use rrule directly
+    if (frequency.rruleString) {
+      return this.calculateNextWithRRule(currentDue, frequency, options);
+    }
+    
     // Determine base date: use whenDone from options (if provided), 
     // then from frequency object, defaulting to false
     const whenDone = options?.whenDone ?? frequency.whenDone ?? false;
@@ -111,6 +117,74 @@ export class RecurrenceEngine {
     }
 
     return nextDate;
+  }
+
+  /**
+   * Calculate next occurrence using rrule
+   */
+  private calculateNextWithRRule(
+    currentDue: Date,
+    frequency: Frequency,
+    options?: { completionDate?: Date; whenDone?: boolean }
+  ): Date {
+    try {
+      // Determine base date: use whenDone from options (if provided), 
+      // then from frequency object, defaulting to false
+      const whenDone = options?.whenDone ?? frequency.whenDone ?? false;
+      
+      // If whenDone is true and completionDate provided, calculate from completion date
+      const baseDate = (whenDone && options?.completionDate) 
+        ? options.completionDate 
+        : currentDue;
+
+      // Parse the rrule string
+      const rrule = rrulestr(frequency.rruleString!);
+      
+      // Get the next occurrence after the base date
+      const nextOccurrence = rrule.after(baseDate, false);
+      
+      if (!nextOccurrence) {
+        // If no next occurrence (e.g., UNTIL date passed), fall back to legacy logic
+        logger.warn("RRule returned no next occurrence, falling back to legacy logic", {
+          rruleString: frequency.rruleString,
+          baseDate: baseDate.toISOString()
+        });
+        // Remove rruleString to prevent infinite recursion
+        const legacyFrequency = { ...frequency };
+        delete legacyFrequency.rruleString;
+        return this.calculateNext(baseDate, legacyFrequency as Frequency, options);
+      }
+
+      // Apply fixed time if specified in frequency
+      let nextDate = nextOccurrence;
+      if (frequency.time) {
+        const { hours, minutes } = parseTime(frequency.time);
+        if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+          const { date, shifted } = setTimeWithFallback(nextDate, hours, minutes);
+          if (shifted) {
+            logger.warn("DST shift detected while applying recurrence time", {
+              requestedTime: frequency.time,
+              original: nextDate.toISOString(),
+              adjusted: date.toISOString(),
+            });
+          }
+          nextDate = date;
+        }
+      }
+
+      return nextDate;
+    } catch (error) {
+      // If rrule parsing fails, fall back to legacy logic
+      logger.error("Failed to parse rrule, falling back to legacy logic", {
+        error: error instanceof Error ? error.message : String(error),
+        rruleString: frequency.rruleString
+      });
+      
+      // Remove rruleString to prevent infinite recursion
+      const legacyFrequency = { ...frequency };
+      delete legacyFrequency.rruleString;
+      return this.calculateNext(currentDue, legacyFrequency as Frequency, options);
+    }
   }
 
   /**

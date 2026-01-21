@@ -5,31 +5,34 @@ export class DescriptionFilter extends Filter {
   constructor(
     private operator: 'includes' | 'does not include' | 'regex',
     private pattern: string,
-    private negate = false
+    private caseSensitive = false
   ) {
     super();
   }
 
   matches(task: Task): boolean {
-    // Search in both name and description
-    const taskName = task.name || '';
-    const taskDescription = task.description || '';
-    const combinedText = `${taskName} ${taskDescription}`.trim();
+    const searchText = task.name || '';
     
-    let result: boolean;
-    
-    if (this.operator === 'regex') {
-      try {
-        const regex = new RegExp(this.pattern, 'i');
-        result = regex.test(combinedText);
-      } catch {
-        result = false;
+    switch (this.operator) {
+      case 'includes': {
+        const needle = this.caseSensitive ? this.pattern : this.pattern.toLowerCase();
+        const haystack = this.caseSensitive ? searchText : searchText.toLowerCase();
+        return haystack.includes(needle);
       }
-    } else {
-      result = combinedText.toLowerCase().includes(this.pattern.toLowerCase());
+      case 'does not include': {
+        const needle = this.caseSensitive ? this.pattern : this.pattern.toLowerCase();
+        const haystack = this.caseSensitive ? searchText : searchText.toLowerCase();
+        return !haystack.includes(needle);
+      }
+      case 'regex': {
+        try {
+          const flags = this.caseSensitive ? '' : 'i';
+          const regex = new RegExp(this.pattern, flags);
+          return regex.test(searchText);
+        } catch {
+          return false;
+        }
+      }
     }
-    
-    // Handle negation properly: 'does not include' XOR negate
-    return (this.operator === 'does not include') !== this.negate ? !result : result;
   }
 }

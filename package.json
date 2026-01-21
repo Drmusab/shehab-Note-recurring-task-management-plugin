@@ -21,6 +21,9 @@
     "test": "vitest run",
     "make-link": "node --no-warnings ./scripts/make_dev_link.js"
   },
+  "dependencies": {
+    "rrule": "^2.8.1"
+  },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",
     "@testing-library/svelte": "^5.2.0",

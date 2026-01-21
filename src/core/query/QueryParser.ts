@@ -99,6 +99,17 @@ export class QueryParser {
   }
 
   private parseFilterInstruction(line: string): FilterNode | null {
+    // Check for boolean operators first (before simple keywords)
+    if (line.includes(' AND ') || line.includes(' and ')) {
+      return this.parseAndFilter(line);
+    }
+    if (line.includes(' OR ') || line.includes(' or ')) {
+      return this.parseOrFilter(line);
+    }
+    if (line.startsWith('NOT ') || line.startsWith('not ')) {
+      return this.parseNotFilter(line);
+    }
+
     // Handle simple keywords
     if (line === 'done') {
       return { type: 'done', operator: 'is', value: true };
@@ -339,5 +350,103 @@ export class QueryParser {
       return str.slice(1, -1);
     }
     return str;
+  }
+
+  private parseAndFilter(line: string): FilterNode {
+    // Split by both uppercase and lowercase AND
+    const parts = line.split(/ AND | and /);
+    const filters = parts.map(p => this.parseFilterInstruction(p.trim())).filter(f => f !== null) as FilterNode[];
+    
+    if (filters.length === 0) {
+      throw new QuerySyntaxError(
+        'Empty AND expression',
+        this.line,
+        this.column,
+        'AND must have filters on both sides'
+      );
+    }
+    
+    if (filters.length === 1) {
+      return filters[0];
+    }
+    
+    // Build left-associative tree: (a AND b) AND c
+    let result = filters[0];
+    for (let i = 1; i < filters.length; i++) {
+      result = {
+        type: 'boolean',
+        operator: 'AND',
+        value: null,
+        left: result,
+        right: filters[i],
+      };
+    }
+    
+    return result;
+  }
+
+  private parseOrFilter(line: string): FilterNode {
+    // Split by both uppercase and lowercase OR
+    const parts = line.split(/ OR | or /);
+    const filters = parts.map(p => this.parseFilterInstruction(p.trim())).filter(f => f !== null) as FilterNode[];
+    
+    if (filters.length === 0) {
+      throw new QuerySyntaxError(
+        'Empty OR expression',
+        this.line,
+        this.column,
+        'OR must have filters on both sides'
+      );
+    }
+    
+    if (filters.length === 1) {
+      return filters[0];
+    }
+    
+    // Build left-associative tree: (a OR b) OR c
+    let result = filters[0];
+    for (let i = 1; i < filters.length; i++) {
+      result = {
+        type: 'boolean',
+        operator: 'OR',
+        value: null,
+        left: result,
+        right: filters[i],
+      };
+    }
+    
+    return result;
+  }
+
+  private parseNotFilter(line: string): FilterNode {
+    // Remove NOT or not prefix
+    const cleanLine = line.replace(/^NOT\s+/i, '').trim();
+    
+    if (!cleanLine) {
+      throw new QuerySyntaxError(
+        'Empty NOT expression',
+        this.line,
+        this.column,
+        'NOT must have a filter after it'
+      );
+    }
+    
+    const inner = this.parseFilterInstruction(cleanLine);
+    
+    if (!inner) {
+      throw new QuerySyntaxError(
+        'Invalid filter after NOT',
+        this.line,
+        this.column,
+        'NOT must be followed by a valid filter'
+      );
+    }
+    
+    return {
+      type: 'boolean',
+      operator: 'NOT',
+      value: null,
+      inner,
+    };
   }
 }
