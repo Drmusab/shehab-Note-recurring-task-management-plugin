@@ -133,6 +133,9 @@ export interface Task {
   /** File path (for path-based filtering) */
   path?: string;
 
+  /** Document heading/section where task is located */
+  heading?: string;
+
   /** Unrecognized line metadata preserved for lossless serialization */
   unknownFields?: string[];
 }

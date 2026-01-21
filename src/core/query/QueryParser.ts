@@ -16,7 +16,7 @@ export interface QueryAST {
 }
 
 export interface FilterNode {
-  type: 'status' | 'date' | 'priority' | 'urgency' | 'tag' | 'path' | 'dependency' | 'recurrence' | 'boolean' | 'done' | 'description';
+  type: 'status' | 'date' | 'priority' | 'urgency' | 'tag' | 'path' | 'dependency' | 'recurrence' | 'boolean' | 'done' | 'description' | 'heading';
   operator: string;
   value: any;
   negate?: boolean;
@@ -232,6 +232,16 @@ export class QueryParser {
     if (line.startsWith('description regex ')) {
       const pattern = line.substring('description regex '.length).trim();
       return { type: 'description', operator: 'regex', value: this.unquote(pattern) };
+    }
+
+    // Heading filters
+    if (line.startsWith('heading includes ')) {
+      const pattern = line.substring('heading includes '.length).trim();
+      return { type: 'heading', operator: 'includes', value: this.unquote(pattern) };
+    }
+    if (line.startsWith('heading does not include ')) {
+      const pattern = line.substring('heading does not include '.length).trim();
+      return { type: 'heading', operator: 'does not include', value: this.unquote(pattern) };
     }
 
     // If we can't parse it, throw error

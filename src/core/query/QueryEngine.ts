@@ -22,6 +22,7 @@ import { IsBlockedFilter, IsBlockingFilter, type DependencyGraph } from './filte
 import { RecurrenceFilter } from './filters/RecurrenceFilter';
 import { AndFilter, OrFilter, NotFilter } from './filters/BooleanFilter';
 import { DescriptionFilter } from './filters/DescriptionFilter';
+import { HeadingFilter } from './filters/HeadingFilter';
 import { UrgencyFilter, type UrgencyComparator } from './filters/UrgencyFilter';
 import { Grouper } from './groupers/GrouperBase';
 import { DueDateGrouper, ScheduledDateGrouper } from './groupers/DateGrouper';
@@ -257,6 +258,12 @@ export class QueryEngine {
           node.negate
         );
 
+      case 'heading':
+        return new HeadingFilter(
+          node.operator as 'includes' | 'does not include',
+          node.value
+        );
+
       case 'boolean':
         if (node.operator === 'AND' && node.left && node.right) {
           return new AndFilter(
@@ -314,6 +321,9 @@ export class QueryEngine {
           break;
         case 'description':
           comparison = (a.description || '').localeCompare(b.description || '');
+          break;
+        case 'heading':
+          comparison = (a.heading || '').localeCompare(b.heading || '');
           break;
         case 'path':
           comparison = (a.path || '').localeCompare(b.path || '');
