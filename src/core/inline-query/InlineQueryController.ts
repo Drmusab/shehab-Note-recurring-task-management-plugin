@@ -32,6 +32,10 @@ interface InlineQueryControllerOptions {
   pageSize?: number;
 }
 
+/**
+ * InlineQueryController manages the lifecycle of inline query blocks in the editor.
+ * It handles parsing, caching, rendering, and user interactions for task query results.
+ */
 export class InlineQueryController {
   private parser = new InlineQueryBlockParser();
   private renderer = new InlineQueryRenderer();
@@ -49,6 +53,9 @@ export class InlineQueryController {
     this.pageSize = options.pageSize ?? 50;
   }
 
+  /**
+   * Initializes the controller and sets up event listeners
+   */
   mount(): void {
     this.refreshAll();
     const { plugin } = this.options;
@@ -83,9 +90,12 @@ export class InlineQueryController {
     );
   }
 
+  /**
+   * Cleans up resources and removes all event listeners
+   */
   destroy(): void {
     if (this.refreshTimer) {
-      window.clearTimeout(this.refreshTimer);
+      globalThis.clearTimeout(this.refreshTimer);
     }
     this.blocks.forEach(({ container }) => container.remove());
     this.blocks.clear();
@@ -93,15 +103,23 @@ export class InlineQueryController {
     this.unsubs = [];
   }
 
+  /**
+   * Schedules a refresh of all query blocks with debouncing
+   * Cancels any pending refresh and schedules a new one
+   */
   scheduleRefresh(): void {
     if (this.refreshTimer) {
-      window.clearTimeout(this.refreshTimer);
+      globalThis.clearTimeout(this.refreshTimer);
     }
-    this.refreshTimer = window.setTimeout(() => {
+    this.refreshTimer = globalThis.setTimeout(() => {
       this.refreshAll();
     }, this.debounceMs);
   }
 
+  /**
+   * Refreshes all inline query blocks in the current protyle instances
+   * Parses blocks, executes queries, and renders results
+   */
   refreshAll(): void {
     const roots = this.getProtyleRoots();
     if (roots.length === 0) {

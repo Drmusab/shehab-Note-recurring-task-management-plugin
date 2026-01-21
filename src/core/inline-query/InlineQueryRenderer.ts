@@ -20,12 +20,12 @@ export class InlineQueryRenderer {
     container.dataset.view = options.view;
 
     if (options.isIndexing) {
-      container.appendChild(this.renderState("Index building…"));
+      container.appendChild(this.renderLoadingState());
       return;
     }
 
     if (options.error) {
-      container.appendChild(this.renderState(options.error, "error"));
+      container.appendChild(this.renderErrorState(options.error));
       return;
     }
 
@@ -37,7 +37,7 @@ export class InlineQueryRenderer {
     const tasks = options.result.tasks;
     const total = tasks.length;
     if (total === 0 || tasks.length === 0) {
-      container.appendChild(this.renderState("No tasks match this query."));
+      container.appendChild(this.renderEmptyState());
       return;
     }
 
@@ -105,7 +105,10 @@ export class InlineQueryRenderer {
     const list = document.createElement("ul");
     list.className = "rt-inline-query__list";
 
+    // Use DocumentFragment for batch DOM insertion
+    const fragment = document.createDocumentFragment();
     const rendered = this.getRenderedTasks(tasks, options);
+    
     rendered.forEach((task) => {
       const item = document.createElement("li");
       item.className = "rt-inline-query__item";
@@ -145,9 +148,10 @@ export class InlineQueryRenderer {
       }
       item.appendChild(editButton);
 
-      list.appendChild(item);
+      fragment.appendChild(item);
     });
 
+    list.appendChild(fragment);
     return list;
   }
 
@@ -166,7 +170,11 @@ export class InlineQueryRenderer {
     table.appendChild(head);
 
     const body = document.createElement("tbody");
+    
+    // Use DocumentFragment for batch DOM insertion
+    const fragment = document.createDocumentFragment();
     const rendered = this.getRenderedTasks(tasks, options);
+    
     rendered.forEach((task) => {
       const row = document.createElement("tr");
       row.dataset.taskId = task.id;
@@ -215,8 +223,10 @@ export class InlineQueryRenderer {
       row.appendChild(sourceCell);
       row.appendChild(actionsCell);
 
-      body.appendChild(row);
+      fragment.appendChild(row);
     });
+    
+    body.appendChild(fragment);
     table.appendChild(body);
 
     return table;
@@ -301,5 +311,78 @@ export class InlineQueryRenderer {
     state.className = `rt-inline-query__state rt-inline-query__state--${tone}`;
     state.textContent = message;
     return state;
+  }
+
+  /**
+   * Renders a loading state with skeleton screen
+   */
+  private renderLoadingState(): HTMLElement {
+    const loading = document.createElement("div");
+    loading.className = "rt-inline-query__loading";
+    loading.setAttribute("role", "status");
+    loading.setAttribute("aria-live", "polite");
+    loading.setAttribute("aria-label", "Loading tasks");
+
+    const spinner = document.createElement("div");
+    spinner.className = "rt-inline-query__spinner";
+    
+    const text = document.createElement("div");
+    text.className = "rt-inline-query__loading-text";
+    text.textContent = "Building index…";
+
+    loading.appendChild(spinner);
+    loading.appendChild(text);
+    return loading;
+  }
+
+  /**
+   * Renders an error state with actionable message
+   */
+  private renderErrorState(error: string): HTMLElement {
+    const errorDiv = document.createElement("div");
+    errorDiv.className = "rt-inline-query__state rt-inline-query__state--error";
+    errorDiv.setAttribute("role", "alert");
+
+    const icon = document.createElement("div");
+    icon.className = "rt-inline-query__error-icon";
+    icon.textContent = "⚠";
+
+    const message = document.createElement("div");
+    message.className = "rt-inline-query__error-message";
+    message.textContent = error;
+
+    const hint = document.createElement("div");
+    hint.className = "rt-inline-query__error-hint";
+    hint.textContent = "Check your query syntax and try again.";
+
+    errorDiv.appendChild(icon);
+    errorDiv.appendChild(message);
+    errorDiv.appendChild(hint);
+    return errorDiv;
+  }
+
+  /**
+   * Renders an empty state when no tasks match
+   */
+  private renderEmptyState(): HTMLElement {
+    const empty = document.createElement("div");
+    empty.className = "rt-inline-query__state rt-inline-query__state--empty";
+
+    const icon = document.createElement("div");
+    icon.className = "rt-inline-query__empty-icon";
+    icon.textContent = "📋";
+
+    const message = document.createElement("div");
+    message.className = "rt-inline-query__empty-message";
+    message.textContent = "No tasks match this query";
+
+    const hint = document.createElement("div");
+    hint.className = "rt-inline-query__empty-hint";
+    hint.textContent = "Try adjusting your filters or create a new task.";
+
+    empty.appendChild(icon);
+    empty.appendChild(message);
+    empty.appendChild(hint);
+    return empty;
   }
 }
