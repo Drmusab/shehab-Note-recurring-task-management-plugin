@@ -48,6 +48,14 @@ export class EventEmitter {
       this.listeners.clear();
     }
   }
+
+  /**
+   * Check if an event has any listeners
+   */
+  hasListeners(event: string): boolean {
+    const callbacks = this.listeners.get(event);
+    return callbacks ? callbacks.size > 0 : false;
+  }
 }
 
 /**
@@ -81,7 +89,7 @@ export class SiYuanBlockWatcher {
       emitter.off('change', callback);
       
       // If no more listeners, stop polling
-      if (!emitter['listeners'].get('change')?.size) {
+      if (!emitter.hasListeners('change')) {
         this.stopPolling(blockId);
       }
     };

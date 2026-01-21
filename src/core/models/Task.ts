@@ -320,8 +320,8 @@ export function isTask(obj: unknown): obj is Task {
  * Record a task completion
  */
 export function recordCompletion(task: Task): void {
-  const now = new Date().toISOString();
-  const nowDate = new Date(now);
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
   
   // Update completion count
   task.completionCount = (task.completionCount || 0) + 1;
