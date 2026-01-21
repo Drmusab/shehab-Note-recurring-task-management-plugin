@@ -15,15 +15,28 @@ interface ParsedAttributes {
 
 export class InlineQueryBlockParser {
   private readonly codeLanguage: string;
+  private cachedCodeBlocks: WeakMap<HTMLElement, NodeListOf<HTMLElement>> = new WeakMap();
+  private cachedAttributeBlocks: WeakMap<HTMLElement, NodeListOf<HTMLElement>> = new WeakMap();
 
   constructor(codeLanguage: string = "tasks") {
     this.codeLanguage = codeLanguage.toLowerCase();
   }
 
+  /**
+   * Parses the DOM to find and extract inline query blocks
+   * @param root - The root HTMLElement to search within (typically .protyle-wysiwyg)
+   * @returns An array of InlineQueryBlock objects
+   */
   parse(root: HTMLElement): InlineQueryBlock[] {
     const blocks: InlineQueryBlock[] = [];
 
-    const codeBlocks = root.querySelectorAll<HTMLElement>('[data-type="NodeCodeBlock"]');
+    // Use cached selectors or query and cache
+    let codeBlocks = this.cachedCodeBlocks.get(root);
+    if (!codeBlocks) {
+      codeBlocks = root.querySelectorAll<HTMLElement>('[data-type="NodeCodeBlock"]');
+      this.cachedCodeBlocks.set(root, codeBlocks);
+    }
+
     codeBlocks.forEach((element) => {
       const language = (element.dataset.subtype || element.getAttribute("data-subtype") || "").toLowerCase();
       if (language !== this.codeLanguage) {
@@ -49,7 +62,12 @@ export class InlineQueryBlockParser {
       });
     });
 
-    const attributeBlocks = root.querySelectorAll<HTMLElement>("[data-node-id]");
+    let attributeBlocks = this.cachedAttributeBlocks.get(root);
+    if (!attributeBlocks) {
+      attributeBlocks = root.querySelectorAll<HTMLElement>("[data-node-id]");
+      this.cachedAttributeBlocks.set(root, attributeBlocks);
+    }
+
     attributeBlocks.forEach((element) => {
       if (element.classList.contains("rt-inline-query")) {
         return;
@@ -74,6 +92,12 @@ export class InlineQueryBlockParser {
     return blocks;
   }
 
+  /**
+   * Parses custom attributes from an element to extract query and view settings
+   * Supports multiple attribute formats for backward compatibility
+   * @param element - The HTML element to parse attributes from
+   * @returns Parsed query and view settings
+   */
   private parseAttributes(element: HTMLElement): ParsedAttributes {
     const directQuery =
       element.getAttribute("custom-task-query") ||

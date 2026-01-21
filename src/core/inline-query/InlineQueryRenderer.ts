@@ -18,14 +18,16 @@ export class InlineQueryRenderer {
     container.classList.add("rt-inline-query");
     container.dataset.query = options.query;
     container.dataset.view = options.view;
+    container.setAttribute("role", "region");
+    container.setAttribute("aria-label", "Task query results");
 
     if (options.isIndexing) {
-      container.appendChild(this.renderState("Index building…"));
+      container.appendChild(this.renderLoadingState());
       return;
     }
 
     if (options.error) {
-      container.appendChild(this.renderState(options.error, "error"));
+      container.appendChild(this.renderErrorState(options.error));
       return;
     }
 
@@ -37,7 +39,7 @@ export class InlineQueryRenderer {
     const tasks = options.result.tasks;
     const total = tasks.length;
     if (total === 0 || tasks.length === 0) {
-      container.appendChild(this.renderState("No tasks match this query."));
+      container.appendChild(this.renderEmptyState());
       return;
     }
 
@@ -104,8 +106,13 @@ export class InlineQueryRenderer {
   private renderList(tasks: Task[], options: InlineQueryRenderOptions): HTMLElement {
     const list = document.createElement("ul");
     list.className = "rt-inline-query__list";
+    list.setAttribute("role", "list");
+    list.setAttribute("aria-label", "Tasks");
 
+    // Use DocumentFragment for batch DOM insertion
+    const fragment = document.createDocumentFragment();
     const rendered = this.getRenderedTasks(tasks, options);
+    
     rendered.forEach((task) => {
       const item = document.createElement("li");
       item.className = "rt-inline-query__item";
@@ -116,6 +123,11 @@ export class InlineQueryRenderer {
       checkbox.className = "rt-inline-query__checkbox";
       checkbox.dataset.rtAction = "toggle";
       checkbox.setAttribute("aria-pressed", String(task.status === "done"));
+      // Sanitize task name for aria-label to prevent attribute injection
+      const checkboxLabel = task.status === "done" 
+        ? `Mark incomplete: ${task.name.replace(/"/g, "'")}`
+        : `Mark complete: ${task.name.replace(/"/g, "'")}`;
+      checkbox.setAttribute("aria-label", checkboxLabel);
       checkbox.textContent = task.status === "done" ? "☑" : "☐";
 
       const title = document.createElement("span");
@@ -135,6 +147,8 @@ export class InlineQueryRenderer {
       editButton.type = "button";
       editButton.className = "rt-inline-query__edit";
       editButton.dataset.rtAction = "edit";
+      // Sanitize task name for aria-label to prevent attribute injection
+      editButton.setAttribute("aria-label", `Edit task: ${task.name.replace(/"/g, "'")}`);
       editButton.textContent = "Edit";
 
       item.appendChild(checkbox);
@@ -145,15 +159,18 @@ export class InlineQueryRenderer {
       }
       item.appendChild(editButton);
 
-      list.appendChild(item);
+      fragment.appendChild(item);
     });
 
+    list.appendChild(fragment);
     return list;
   }
 
   private renderTable(tasks: Task[], options: InlineQueryRenderOptions): HTMLElement {
     const table = document.createElement("table");
     table.className = "rt-inline-query__table";
+    table.setAttribute("role", "table");
+    table.setAttribute("aria-label", "Tasks table");
 
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
@@ -166,7 +183,11 @@ export class InlineQueryRenderer {
     table.appendChild(head);
 
     const body = document.createElement("tbody");
+    
+    // Use DocumentFragment for batch DOM insertion
+    const fragment = document.createDocumentFragment();
     const rendered = this.getRenderedTasks(tasks, options);
+    
     rendered.forEach((task) => {
       const row = document.createElement("tr");
       row.dataset.taskId = task.id;
@@ -177,6 +198,11 @@ export class InlineQueryRenderer {
       checkbox.className = "rt-inline-query__checkbox";
       checkbox.dataset.rtAction = "toggle";
       checkbox.setAttribute("aria-pressed", String(task.status === "done"));
+      // Sanitize task name for aria-label to prevent attribute injection
+      const ariaLabel = task.status === "done" 
+        ? `Mark incomplete: ${task.name.replace(/"/g, "'")}`
+        : `Mark complete: ${task.name.replace(/"/g, "'")}`;
+      checkbox.setAttribute("aria-label", ariaLabel);
       checkbox.textContent = task.status === "done" ? "☑" : "☐";
       statusCell.appendChild(checkbox);
 
@@ -205,6 +231,8 @@ export class InlineQueryRenderer {
       editButton.type = "button";
       editButton.className = "rt-inline-query__edit";
       editButton.dataset.rtAction = "edit";
+      // Sanitize task name for aria-label to prevent attribute injection
+      editButton.setAttribute("aria-label", `Edit task: ${task.name.replace(/"/g, "'")}`);
       editButton.textContent = "Edit";
       actionsCell.appendChild(editButton);
 
@@ -215,8 +243,10 @@ export class InlineQueryRenderer {
       row.appendChild(sourceCell);
       row.appendChild(actionsCell);
 
-      body.appendChild(row);
+      fragment.appendChild(row);
     });
+    
+    body.appendChild(fragment);
     table.appendChild(body);
 
     return table;
@@ -301,5 +331,78 @@ export class InlineQueryRenderer {
     state.className = `rt-inline-query__state rt-inline-query__state--${tone}`;
     state.textContent = message;
     return state;
+  }
+
+  /**
+   * Renders a loading state with skeleton screen
+   */
+  private renderLoadingState(): HTMLElement {
+    const loading = document.createElement("div");
+    loading.className = "rt-inline-query__loading";
+    loading.setAttribute("role", "status");
+    loading.setAttribute("aria-live", "polite");
+    loading.setAttribute("aria-label", "Loading tasks");
+
+    const spinner = document.createElement("div");
+    spinner.className = "rt-inline-query__spinner";
+    
+    const text = document.createElement("div");
+    text.className = "rt-inline-query__loading-text";
+    text.textContent = "Building index…";
+
+    loading.appendChild(spinner);
+    loading.appendChild(text);
+    return loading;
+  }
+
+  /**
+   * Renders an error state with actionable message
+   */
+  private renderErrorState(error: string): HTMLElement {
+    const errorDiv = document.createElement("div");
+    errorDiv.className = "rt-inline-query__state rt-inline-query__state--error";
+    errorDiv.setAttribute("role", "alert");
+
+    const icon = document.createElement("div");
+    icon.className = "rt-inline-query__error-icon";
+    icon.textContent = "⚠";
+
+    const message = document.createElement("div");
+    message.className = "rt-inline-query__error-message";
+    message.textContent = error;
+
+    const hint = document.createElement("div");
+    hint.className = "rt-inline-query__error-hint";
+    hint.textContent = "Check your query syntax and try again.";
+
+    errorDiv.appendChild(icon);
+    errorDiv.appendChild(message);
+    errorDiv.appendChild(hint);
+    return errorDiv;
+  }
+
+  /**
+   * Renders an empty state when no tasks match
+   */
+  private renderEmptyState(): HTMLElement {
+    const empty = document.createElement("div");
+    empty.className = "rt-inline-query__state rt-inline-query__state--empty";
+
+    const icon = document.createElement("div");
+    icon.className = "rt-inline-query__empty-icon";
+    icon.textContent = "📋";
+
+    const message = document.createElement("div");
+    message.className = "rt-inline-query__empty-message";
+    message.textContent = "No tasks match this query";
+
+    const hint = document.createElement("div");
+    hint.className = "rt-inline-query__empty-hint";
+    hint.textContent = "Try adjusting your filters or create a new task.";
+
+    empty.appendChild(icon);
+    empty.appendChild(message);
+    empty.appendChild(hint);
+    return empty;
   }
 }

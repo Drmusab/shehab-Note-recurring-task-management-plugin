@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import { describe, expect, it } from "vitest";
 import { InlineQueryBlockParser } from "@/core/inline-query/InlineQueryBlockParser";
 
