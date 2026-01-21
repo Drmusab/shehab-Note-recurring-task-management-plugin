@@ -5,16 +5,18 @@ import type { Task } from '@/core/models/Task';
 export type Priority = 'low' | 'normal' | 'high' | 'urgent';
 
 // Type for spec-defined priority levels (for query language)
-export type PriorityLevel = 'lowest' | 'low' | 'normal' | 'medium' | 'high' | 'highest';
+export type PriorityLevel = 'lowest' | 'low' | 'none' | 'normal' | 'medium' | 'high' | 'highest' | 'urgent';
 
 // Priority weight mapping
 const PRIORITY_WEIGHTS: Record<PriorityLevel, number> = {
   'lowest': 0,
   'low': 1,
-  'medium': 2,
+  'none': 2,
   'normal': 2,
+  'medium': 2,
   'high': 3,
   'highest': 4,
+  'urgent': 4,
 };
 
 // Map Task priority to PriorityLevel
@@ -27,7 +29,7 @@ function mapToPriorityLevel(p: Priority | undefined): PriorityLevel {
     case 'high':
       return 'high';
     case 'urgent':
-      return 'highest';
+      return 'urgent';
     default:
       return 'normal';
   }

@@ -24,6 +24,7 @@ export { PathFilter } from './filters/PathFilter';
 export { IsBlockedFilter, IsBlockingFilter, type DependencyGraph } from './filters/DependencyFilter';
 export { RecurrenceFilter } from './filters/RecurrenceFilter';
 export { AndFilter, OrFilter, NotFilter } from './filters/BooleanFilter';
+export { DescriptionFilter } from './filters/DescriptionFilter';
 
 // Groupers
 export { Grouper } from './groupers/GrouperBase';

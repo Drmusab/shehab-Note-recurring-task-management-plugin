@@ -191,6 +191,20 @@ export class QueryParser {
       return { type: 'recurrence', operator: 'is', value: false };
     }
 
+    // Description filters
+    if (line.startsWith('description includes ')) {
+      const pattern = line.substring('description includes '.length).trim();
+      return { type: 'description', operator: 'includes', value: this.unquote(pattern) };
+    }
+    if (line.startsWith('description does not include ')) {
+      const pattern = line.substring('description does not include '.length).trim();
+      return { type: 'description', operator: 'does not include', value: this.unquote(pattern) };
+    }
+    if (line.startsWith('description regex ')) {
+      const pattern = line.substring('description regex '.length).trim();
+      return { type: 'description', operator: 'regex', value: this.unquote(pattern) };
+    }
+
     // If we can't parse it, throw error
     throw new QuerySyntaxError(
       `Unknown filter instruction: "${line}"`,
