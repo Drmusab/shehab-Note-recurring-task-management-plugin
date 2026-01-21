@@ -22,12 +22,13 @@
     "make-link": "node --no-warnings ./scripts/make_dev_link.js"
   },
   "dependencies": {
+    "chrono-node": "^2.9.0",
     "rrule": "^2.8.1"
   },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/svelte": "^5.2.0",
-    "@sveltejs/vite-plugin-svelte": "^4.0.0",
     "@tsconfig/svelte": "^5.0.4",
     "jsdom": "^24.1.0",
     "minimist": "^1.2.8",

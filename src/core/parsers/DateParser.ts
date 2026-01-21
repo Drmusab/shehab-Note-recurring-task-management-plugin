@@ -1,3 +1,5 @@
+import * as chrono from 'chrono-node';
+
 export interface ParsedDate {
   date: Date | null;
   isValid: boolean;
@@ -10,7 +12,7 @@ export class DateParser {
    * Parse a date string (natural language or ISO format)
    */
   static parse(input: string, referenceDate: Date = new Date()): ParsedDate {
-    const trimmed = input.trim().toLowerCase();
+    const trimmed = input.trim();
     const original = input;
 
     if (!trimmed) {
@@ -26,27 +28,41 @@ export class DateParser {
       }
     }
 
-    // Natural language parsing
+    // Try chrono-node for comprehensive natural language parsing
+    try {
+      const parsed = chrono.parseDate(trimmed, referenceDate);
+      if (parsed) {
+        // Normalize to midnight for consistency with existing behavior
+        const normalized = new Date(parsed);
+        normalized.setHours(0, 0, 0, 0);
+        return { date: normalized, isValid: true, original };
+      }
+    } catch (error) {
+      // Fall through to legacy parsing if chrono fails
+    }
+
+    // Legacy natural language parsing (fallback if chrono didn't parse)
     const today = new Date(referenceDate);
     today.setHours(0, 0, 0, 0);
+    const trimmedLower = trimmed.toLowerCase();
 
     // Simple keywords
-    if (trimmed === 'today') {
+    if (trimmedLower === 'today') {
       return { date: today, isValid: true, original };
     }
-    if (trimmed === 'tomorrow') {
+    if (trimmedLower === 'tomorrow') {
       const date = new Date(today);
       date.setDate(date.getDate() + 1);
       return { date, isValid: true, original };
     }
-    if (trimmed === 'yesterday') {
+    if (trimmedLower === 'yesterday') {
       const date = new Date(today);
       date.setDate(date.getDate() - 1);
       return { date, isValid: true, original };
     }
 
     // "in X days/weeks/months"
-    const inMatch = trimmed.match(/^in\s+(\d+)\s+(day|days|week|weeks|month|months)$/);
+    const inMatch = trimmedLower.match(/^in\s+(\d+)\s+(day|days|week|weeks|month|months)$/);
     if (inMatch) {
       const amount = parseInt(inMatch[1]);
       const unit = inMatch[2];
@@ -62,7 +78,7 @@ export class DateParser {
     }
 
     // "X days/weeks ago"
-    const agoMatch = trimmed.match(/^(\d+)\s+(day|days|week|weeks|month|months)\s+ago$/);
+    const agoMatch = trimmedLower.match(/^(\d+)\s+(day|days|week|weeks|month|months)\s+ago$/);
     if (agoMatch) {
       const amount = parseInt(agoMatch[1]);
       const unit = agoMatch[2];
@@ -79,7 +95,7 @@ export class DateParser {
 
     // "next/last Monday/Tuesday/etc"
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const nextLastMatch = trimmed.match(/^(next|last)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$/);
+    const nextLastMatch = trimmedLower.match(/^(next|last)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$/);
     if (nextLastMatch) {
       const direction = nextLastMatch[1];
       const targetDay = dayNames.indexOf(nextLastMatch[2]);
@@ -98,7 +114,7 @@ export class DateParser {
     }
 
     // "Monday/Tuesday/etc" (next occurrence, including today)
-    const dayOnlyMatch = trimmed.match(/^(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$/);
+    const dayOnlyMatch = trimmedLower.match(/^(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$/);
     if (dayOnlyMatch) {
       const targetDay = dayNames.indexOf(dayOnlyMatch[1]);
       const currentDay = today.getDay();
@@ -111,7 +127,7 @@ export class DateParser {
     }
 
     // "this/next/last week/month"
-    const periodMatch = trimmed.match(/^(this|next|last)\s+(week|month)$/);
+    const periodMatch = trimmedLower.match(/^(this|next|last)\s+(week|month)$/);
     if (periodMatch) {
       const period = periodMatch[1];
       const unit = periodMatch[2];
