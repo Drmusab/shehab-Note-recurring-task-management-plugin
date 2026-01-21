@@ -6,6 +6,7 @@ import { resolve } from "path";
 
 const isWatch = process.argv.includes("--watch");
 const mode = process.env.NODE_ENV || "production";
+const isTest = !!process.env.VITEST;
 
 export default defineConfig({
   plugins: [
@@ -32,6 +33,12 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
+      ...(isTest
+        ? {
+            siyuan: resolve(__dirname, "src/__tests__/siyuan-stub.ts"),
+            rrule: resolve(__dirname, "src/__tests__/rrule-stub.ts"),
+          }
+        : {}),
     },
   },
   build: {

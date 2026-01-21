@@ -2,6 +2,7 @@ import { Plugin } from "siyuan";
 import { mount, unmount } from "svelte";
 import Dashboard from "./components/Dashboard.svelte";
 import QuickAddOverlay from "./components/cards/QuickAddOverlay.svelte";
+import PostponeOverlay from "./components/cards/PostponeOverlay.svelte";
 import TaskEditorModal from "./components/TaskEditorModal.svelte";
 import type { Task } from "./core/models/Task";
 import type { Scheduler } from "./core/engine/Scheduler";
@@ -16,6 +17,8 @@ import { DOCK_TYPE, STORAGE_ACTIVE_KEY } from "./utils/constants";
 import * as logger from "./utils/logger";
 import { showToast, toast } from "./utils/notifications";
 import { pluginEventBus } from "./core/events/PluginEventBus";
+import { snoozeTask } from "./utils/snooze";
+import type { ShortcutManager } from "./commands/ShortcutManager";
 import "./index.scss";
 
 export default class RecurringTasksPlugin extends Plugin {
@@ -31,7 +34,10 @@ export default class RecurringTasksPlugin extends Plugin {
   private quickAddContainer: HTMLElement | null = null;
   private taskEditorComponent: ReturnType<typeof mount> | null = null;
   private taskEditorContainer: HTMLElement | null = null;
+  private postponeComponent: ReturnType<typeof mount> | null = null;
+  private postponeContainer: HTMLElement | null = null;
   private pendingCompletionTimeouts: Map<string, number> = new Map();
+  private shortcutManager: ShortcutManager | null = null;
 
   async onload() {
     logger.info("Loading Recurring Tasks Plugin");
@@ -68,9 +74,16 @@ export default class RecurringTasksPlugin extends Plugin {
     }
 
     // Register slash commands and hotkeys
-    registerCommands(
-      this, 
-      this.repository, 
+    this.shortcutManager = await registerCommands(
+      this,
+      this.repository,
+      {
+        createTask: (payload) => this.dispatchCreateTask(payload),
+        completeTask: (taskId) => pluginEventBus.emit("task:complete", { taskId }),
+        postponeTask: (taskId) => this.openPostponePicker(taskId),
+        openDock: () => this.openDock(),
+        openTaskEditor: () => this.openTaskEditor(),
+      },
       this.scheduler.getRecurrenceEngine(),
       () => settingsService.get()
     );
@@ -128,9 +141,15 @@ export default class RecurringTasksPlugin extends Plugin {
     this.destroyDashboard();
     this.closeQuickAdd();
     this.closeTaskEditor();
+    this.closePostponePicker();
 
     // Remove event listeners
     this.removeEventListeners();
+
+    if (this.shortcutManager) {
+      this.shortcutManager.destroy();
+      this.shortcutManager = null;
+    }
   }
 
   private renderDashboard() {
@@ -141,6 +160,7 @@ export default class RecurringTasksPlugin extends Plugin {
           repository: this.repository,
           scheduler: this.scheduler,
           eventService: this.eventService,
+          shortcutManager: this.shortcutManager,
         },
       });
     }
@@ -341,6 +361,58 @@ export default class RecurringTasksPlugin extends Plugin {
         },
       },
     });
+  }
+
+  private openPostponePicker(taskId: string) {
+    const task = this.repository.getTask(taskId);
+    if (!task) {
+      toast.error("Task not found");
+      return;
+    }
+
+    if (this.postponeComponent) {
+      this.closePostponePicker();
+    }
+
+    this.postponeContainer = document.createElement("div");
+    document.body.appendChild(this.postponeContainer);
+    this.postponeComponent = mount(PostponeOverlay, {
+      target: this.postponeContainer,
+      props: {
+        taskName: task.name,
+        onClose: () => this.closePostponePicker(),
+        onSelect: (minutes: number) => {
+          snoozeTask(taskId, minutes);
+          this.closePostponePicker();
+        },
+      },
+    });
+  }
+
+  private closePostponePicker() {
+    if (this.postponeComponent) {
+      unmount(this.postponeComponent);
+      this.postponeComponent = null;
+    }
+    if (this.postponeContainer) {
+      this.postponeContainer.remove();
+      this.postponeContainer = null;
+    }
+  }
+
+  private dispatchCreateTask(payload: {
+    source: string;
+    suggestedName?: string;
+    linkedBlockId?: string;
+    linkedBlockContent?: string;
+    suggestedTime?: string | null;
+  }): void {
+    pluginEventBus.emit("task:create", payload);
+    window.dispatchEvent(
+      new CustomEvent("recurring-task-create", {
+        detail: payload,
+      })
+    );
   }
 
   private closeQuickAdd() {

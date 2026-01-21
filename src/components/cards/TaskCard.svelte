@@ -214,6 +214,7 @@
   role="article"
   aria-label={ariaLabel()}
   tabindex="0"
+  data-task-id={task.id}
   onkeydown={(event) => {
     if (event.key === "Escape" && showSnoozeMenu) {
       showSnoozeMenu = false;

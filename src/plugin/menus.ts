@@ -116,7 +116,7 @@ export function registerBlockMenu(plugin: Plugin): void {
 /**
  * Extract task name from block content
  */
-function extractTaskName(content: string): string {
+export function extractTaskName(content: string): string {
   // Extract first line or first 50 chars
   const firstLine = content.split('\n')[0].trim();
   return firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;

@@ -3,25 +3,77 @@
   import type { EventService } from "@/services/EventService";
   import { DEFAULT_NOTIFICATION_CONFIG } from "@/utils/constants";
   import { toast } from "@/utils/notifications";
-  import { SHORTCUTS } from "@/utils/shortcuts";
+  import type { ShortcutManager, ShortcutDisplay } from "@/commands/ShortcutManager";
   import GlobalFilterSettings from './GlobalFilterSettings.svelte';
   import StatusRegistryEditor from './StatusRegistryEditor.svelte';
 
   interface Props {
     eventService: EventService;
+    shortcutManager: ShortcutManager | null;
     onClose?: () => void;
   }
 
-  let { eventService, onClose }: Props = $props();
+  let { eventService, shortcutManager, onClose }: Props = $props();
 
   let config = $state<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
   let testingChannel: string | null = $state(null);
   let testResults = $state<{ [key: string]: { success: boolean; message: string } }>({});
   let activeSection = $state<'general' | 'filter' | 'statuses' | 'shortcuts'>('general');
+  let shortcutList = $state<ShortcutDisplay[]>([]);
+  let shortcutDrafts = $state<Record<string, string>>({});
+
+  function refreshShortcuts() {
+    if (!shortcutManager) {
+      shortcutList = [];
+      shortcutDrafts = {};
+      return;
+    }
+    shortcutList = shortcutManager.getShortcutDisplay();
+    shortcutDrafts = shortcutList.reduce<Record<string, string>>((acc, shortcut) => {
+      acc[shortcut.id] = shortcut.currentHotkey || "";
+      return acc;
+    }, {});
+  }
+
+  function updateShortcutDraft(id: string, value: string) {
+    shortcutDrafts = { ...shortcutDrafts, [id]: value };
+  }
+
+  async function saveShortcut(id: string) {
+    if (!shortcutManager) return;
+    const result = await shortcutManager.updateShortcut(
+      id as ShortcutDisplay["id"],
+      shortcutDrafts[id] ?? ""
+    );
+    if (!result.success) {
+      toast.error(result.message || "Failed to update shortcut.");
+      return;
+    }
+    toast.success("Shortcut updated.");
+    refreshShortcuts();
+  }
+
+  async function resetShortcut(id: string) {
+    if (!shortcutManager) return;
+    await shortcutManager.resetShortcut(id as ShortcutDisplay["id"]);
+    toast.success("Shortcut reset.");
+    refreshShortcuts();
+  }
+
+  async function resetAllShortcuts() {
+    if (!shortcutManager) return;
+    await shortcutManager.resetAllShortcuts();
+    toast.success("Shortcuts reset to defaults.");
+    refreshShortcuts();
+  }
 
   // Initialize config from service
   $effect(() => {
     config = eventService.getConfig();
+  });
+
+  $effect(() => {
+    refreshShortcuts();
   });
 
   async function handleSave() {
@@ -150,7 +202,7 @@
             <h3 class="settings__section-title">Keyboard Shortcuts</h3>
           </div>
           <div class="settings__shortcuts">
-            {#each SHORTCUTS as shortcut}
+            {#each shortcutList as shortcut}
               <div class="settings__shortcut">
                 <div class="settings__shortcut-main">
                   <div class="settings__shortcut-label">{shortcut.label}</div>
@@ -159,10 +211,45 @@
                     <div class="settings__shortcut-context">{shortcut.context}</div>
                   {/if}
                 </div>
-                <div class="settings__shortcut-keys">{shortcut.keys}</div>
+                <div class="settings__shortcut-keys">
+                  <input
+                    class="settings__shortcut-input"
+                    type="text"
+                    value={shortcutDrafts[shortcut.id] ?? ""}
+                    placeholder="Unassigned"
+                    oninput={(event) =>
+                      updateShortcutDraft(shortcut.id, (event.currentTarget as HTMLInputElement).value)
+                    }
+                  />
+                  <div class="settings__shortcut-actions">
+                    <button
+                      class="settings__shortcut-btn"
+                      type="button"
+                      onclick={() => saveShortcut(shortcut.id)}
+                    >
+                      Save
+                    </button>
+                    <button
+                      class="settings__shortcut-btn settings__shortcut-btn--ghost"
+                      type="button"
+                      onclick={() => resetShortcut(shortcut.id)}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div class="settings__shortcut-default">
+                    Default: {shortcut.defaultHotkey || "Unassigned"}
+                  </div>
+                </div>
               </div>
             {/each}
           </div>
+          <button class="settings__shortcut-reset-all" type="button" onclick={resetAllShortcuts}>
+            Reset all shortcuts
+          </button>
+          <p class="settings__shortcut-note">
+            Tip: You can also customize these in SiYuan's native shortcut settings.
+          </p>
         </section>
       {/if}
     </div>
@@ -415,15 +502,60 @@
   }
 
   .settings__shortcut-keys {
-    font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 13px;
-    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 220px;
+  }
+
+  .settings__shortcut-input {
+    width: 100%;
+    padding: 8px 10px;
     border-radius: 6px;
     border: 1px solid var(--b3-border-color);
-    background: var(--b3-theme-surface-lighter);
+    background: var(--b3-theme-surface);
     color: var(--b3-theme-on-surface);
-    align-self: center;
-    white-space: nowrap;
+    font-size: 13px;
+    font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+
+  .settings__shortcut-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .settings__shortcut-btn {
+    border: 1px solid var(--b3-border-color);
+    background: var(--b3-theme-surface-lighter);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .settings__shortcut-btn--ghost {
+    background: transparent;
+  }
+
+  .settings__shortcut-default {
+    font-size: 12px;
+    color: var(--b3-theme-on-surface-light);
+  }
+
+  .settings__shortcut-reset-all {
+    margin-top: 16px;
+    border: 1px solid var(--b3-border-color);
+    background: var(--b3-theme-surface-lighter);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .settings__shortcut-note {
+    margin-top: 8px;
+    color: var(--b3-theme-on-surface-light);
+    font-size: 12px;
   }
 
   .settings__save-btn {

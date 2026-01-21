@@ -85,6 +85,12 @@ export const SNOOZE_OPTIONS = [
   { label: "4 hours", minutes: 240 },
 ];
 
+export const POSTPONE_PRESETS = [
+  { label: "+1 day", minutes: 60 * 24 },
+  { label: "+3 days", minutes: 60 * 24 * 3 },
+  { label: "+1 week", minutes: 60 * 24 * 7 },
+];
+
 /**
  * Priority colors
  */

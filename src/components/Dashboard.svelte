@@ -4,6 +4,7 @@
   import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
   import type { Scheduler } from "@/core/engine/Scheduler";
   import type { EventService } from "@/services/EventService";
+  import type { ShortcutManager } from "@/commands/ShortcutManager";
   import { showToast, toast } from "@/utils/notifications";
   import { isValidFrequency } from "@/core/models/Frequency";
   import { pluginEventBus } from "@/core/events/PluginEventBus";
@@ -30,9 +31,10 @@
     repository: TaskRepositoryProvider;
     scheduler: Scheduler;
     eventService: EventService;
+    shortcutManager: ShortcutManager | null;
   }
 
-  let { repository, scheduler, eventService }: Props = $props();
+  let { repository, scheduler, eventService, shortcutManager }: Props = $props();
 
   // Get timezone handler and recurrence engine from scheduler
   // These are simple getters, not reactive state - no need for $derived
@@ -430,7 +432,7 @@
 
   {#if showSettings}
     <div class="dashboard__overlay">
-      <Settings {eventService} onClose={handleCloseSettings} />
+      <Settings {eventService} {shortcutManager} onClose={handleCloseSettings} />
     </div>
   {:else if showTaskForm}
     <div class="dashboard__overlay">
