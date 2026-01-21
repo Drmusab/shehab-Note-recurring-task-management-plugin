@@ -133,3 +133,10 @@ export const LAST_RUN_TIMESTAMP_KEY = "last-run-timestamp";
 export const BLOCK_ATTR_TASK_ID = "custom-recurring-task-id";
 export const BLOCK_ATTR_TASK_DUE = "custom-recurring-task-due";
 export const BLOCK_ATTR_TASK_ENABLED = "custom-recurring-task-enabled";
+
+/**
+ * Block sync retry configuration
+ */
+export const MAX_SYNC_RETRIES = 3;
+export const RETRY_DELAYS = [1000, 5000, 30000]; // Exponential backoff in ms
+export const SYNC_RETRY_PROCESSOR_INTERVAL = 10000; // Check retry queue every 10s

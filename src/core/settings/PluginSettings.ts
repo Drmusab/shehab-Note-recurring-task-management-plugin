@@ -62,6 +62,9 @@ export interface PluginSettings {
   
   /** Global task filter (Phase 5) */
   globalFilter: GlobalFilterConfig;
+  
+  /** Display timezone for date rendering */
+  displayTimezone?: string;
 }
 
 /**

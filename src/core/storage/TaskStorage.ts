@@ -8,6 +8,9 @@ import {
   STORAGE_ARCHIVE_KEY,
   STORAGE_LEGACY_BACKUP_KEY,
   STORAGE_LEGACY_KEY,
+  MAX_SYNC_RETRIES,
+  RETRY_DELAYS,
+  SYNC_RETRY_PROCESSOR_INTERVAL,
 } from "@/utils/constants";
 import { ActiveTaskStore } from "@/core/storage/ActiveTaskStore";
 import { ArchiveTaskStore, type ArchiveQuery } from "@/core/storage/ArchiveTaskStore";
@@ -20,6 +23,15 @@ import {
   type SiYuanBlockAPI,
   reportSiYuanApiIssue,
 } from "@/core/api/SiYuanApiAdapter";
+
+/**
+ * Retry queue entry for failed block attribute syncs
+ */
+interface SyncRetryEntry {
+  task: Task;
+  attempts: number;
+  nextRetry: number;
+}
 
 /**
  * TaskStorage manages task persistence using SiYuan storage API.
@@ -49,6 +61,10 @@ export class TaskStorage implements TaskStorageProvider {
   private blockAttrSyncEnabled = true;
   private blockApi: SiYuanBlockAPI;
   private apiAdapter: SiYuanApiAdapter;
+  
+  // Retry queue for failed block attribute syncs
+  private syncRetryQueue: Map<string, SyncRetryEntry> = new Map();
+  private retryProcessorInterval?: NodeJS.Timeout;
 
   constructor(plugin: Plugin, apiAdapter: SiYuanApiAdapter = new SiYuanApiAdapter()) {
     this.plugin = plugin;
@@ -69,6 +85,7 @@ export class TaskStorage implements TaskStorageProvider {
     logger.info(`Loaded ${this.activeTasks.size} active tasks from storage`);
     this.rebuildBlockIndex();
     this.rebuildDueIndex();
+    this.startSyncRetryProcessor();
   }
 
   /**
@@ -265,6 +282,18 @@ export class TaskStorage implements TaskStorageProvider {
    * Add or update a task
    */
   async saveTask(task: Task): Promise<void> {
+    const existingTask = this.activeTasks.get(task.id);
+    
+    // Optimistic locking check
+    if (existingTask && task.version !== undefined && existingTask.version !== undefined) {
+      if (task.version < existingTask.version) {
+        throw new Error(`Concurrent modification detected for task "${task.name}". Please refresh and try again.`);
+      }
+    }
+    
+    // Increment version on save
+    task.version = (task.version ?? 0) + 1;
+    
     const previousTask = this.activeTasks.get(task.id);
     const previousBlockId = this.taskBlockIndex.get(task.id);
     if (previousBlockId && previousBlockId !== task.linkedBlockId) {
@@ -294,9 +323,9 @@ export class TaskStorage implements TaskStorageProvider {
     this.activeTasks.set(task.id, task);
     await this.save();
 
-    // Sync to block attributes for persistence
+    // Sync to block attributes for persistence with retry
     if (task.linkedBlockId) {
-      await this.syncTaskToBlockAttrs(task);
+      await this.syncTaskToBlockAttrsWithRetry(task);
     }
 
     if (previousBlockId && previousBlockId !== task.linkedBlockId) {
@@ -493,5 +522,111 @@ export class TaskStorage implements TaskStorageProvider {
       activeKey: STORAGE_ACTIVE_KEY,
       archiveIndexKey: STORAGE_ARCHIVE_KEY,
     });
+  }
+
+  /**
+   * Sync task data to block attributes with retry support
+   */
+  private async syncTaskToBlockAttrsWithRetry(task: Task): Promise<void> {
+    try {
+      await this.syncTaskToBlockAttrs(task);
+      
+      // If successful, remove from retry queue if it was there
+      this.syncRetryQueue.delete(task.id);
+    } catch (err) {
+      // Add to retry queue
+      const retryEntry = this.syncRetryQueue.get(task.id) || {
+        task,
+        attempts: 0,
+        nextRetry: Date.now(),
+      };
+      
+      if (retryEntry.attempts < MAX_SYNC_RETRIES) {
+        retryEntry.attempts++;
+        retryEntry.nextRetry = Date.now() + RETRY_DELAYS[retryEntry.attempts - 1];
+        retryEntry.task = task; // Update with latest task data
+        this.syncRetryQueue.set(task.id, retryEntry);
+        
+        logger.warn(`Block sync failed for task ${task.id}, added to retry queue`, {
+          taskId: task.id,
+          attempts: retryEntry.attempts,
+          nextRetry: new Date(retryEntry.nextRetry).toISOString(),
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } else {
+        // Max retries exceeded
+        logger.error(`Block sync failed for task ${task.id} after ${MAX_SYNC_RETRIES} attempts`, {
+          taskId: task.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        this.syncRetryQueue.delete(task.id);
+      }
+    }
+  }
+
+  /**
+   * Start background processor for retry queue
+   */
+  private startSyncRetryProcessor(): void {
+    if (this.retryProcessorInterval) {
+      clearInterval(this.retryProcessorInterval);
+    }
+    
+    this.retryProcessorInterval = setInterval(async () => {
+      const now = Date.now();
+      const toRetry: Array<{ id: string; entry: { task: Task; attempts: number; nextRetry: number } }> = [];
+      
+      // Collect entries ready for retry
+      for (const [id, entry] of this.syncRetryQueue.entries()) {
+        if (entry.nextRetry <= now) {
+          toRetry.push({ id, entry });
+        }
+      }
+      
+      // Process retries
+      for (const { id, entry } of toRetry) {
+        try {
+          await this.syncTaskToBlockAttrs(entry.task);
+          
+          // Success - remove from queue
+          this.syncRetryQueue.delete(id);
+          logger.info(`Block sync retry succeeded for task ${id}`, {
+            taskId: id,
+            attempts: entry.attempts,
+          });
+        } catch (err) {
+          // Failed again - update retry info
+          if (entry.attempts < MAX_SYNC_RETRIES) {
+            entry.attempts++;
+            entry.nextRetry = Date.now() + RETRY_DELAYS[entry.attempts - 1];
+            this.syncRetryQueue.set(id, entry);
+            
+            logger.warn(`Block sync retry failed for task ${id}`, {
+              taskId: id,
+              attempts: entry.attempts,
+              nextRetry: new Date(entry.nextRetry).toISOString(),
+              error: err instanceof Error ? err.message : String(err),
+            });
+          } else {
+            // Max retries exceeded
+            logger.error(`Block sync retry exhausted for task ${id} after ${MAX_SYNC_RETRIES} attempts`, {
+              taskId: id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            this.syncRetryQueue.delete(id);
+          }
+        }
+      }
+    }, SYNC_RETRY_PROCESSOR_INTERVAL);
+  }
+
+  /**
+   * Stop the retry processor (call on plugin unload)
+   */
+  stopSyncRetryProcessor(): void {
+    if (this.retryProcessorInterval) {
+      clearInterval(this.retryProcessorInterval);
+      this.retryProcessorInterval = undefined;
+    }
   }
 }

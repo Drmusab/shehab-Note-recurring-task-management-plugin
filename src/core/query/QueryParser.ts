@@ -12,6 +12,7 @@ export interface QueryAST {
   sort?: SortNode;
   group?: GroupNode;
   limit?: number;
+  explain?: boolean;
 }
 
 export interface FilterNode {
@@ -71,6 +72,8 @@ export class QueryParser {
         ast.group = this.parseGroupInstruction(line);
       } else if (line.startsWith('limit ') || line.startsWith('limit to ')) {
         ast.limit = this.parseLimitInstruction(line);
+      } else if (/^explain$/i.test(line)) {
+        ast.explain = true;
       } else {
         // It's a filter instruction
         const filter = this.parseFilterInstruction(line);

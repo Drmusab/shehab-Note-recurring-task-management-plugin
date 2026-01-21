@@ -3,6 +3,7 @@ import * as logger from "@/utils/logger";
 import { addDays, addWeeks, setTimeWithFallback, parseTime } from "@/utils/date";
 import { MAX_RECURRENCE_ITERATIONS, MAX_RECOVERY_ITERATIONS } from "@/utils/constants";
 import { RRule, rrulestr } from 'rrule';
+import { toUTC, fromUTC, getUserTimezone } from "@/utils/timezone";
 
 /**
  * RecurrenceEngine calculates next occurrence dates based on frequency rules
@@ -44,14 +45,17 @@ export class RecurrenceEngine {
    * Calculate the next occurrence date based on frequency
    * @param currentDue Current due date
    * @param frequency Recurrence rule
-   * @param options Optional configuration (completionDate for "when done", whenDone flag override)
+   * @param options Optional configuration (completionDate for "when done", whenDone flag override, timezone)
    * @returns Next occurrence date
    */
   calculateNext(
     currentDue: Date, 
     frequency: Frequency,
-    options?: { completionDate?: Date; whenDone?: boolean }
+    options?: { completionDate?: Date; whenDone?: boolean; timezone?: string }
   ): Date {
+    // Get timezone from options or use user's timezone
+    const timezone = options?.timezone || getUserTimezone();
+    
     // If frequency has rruleString, use rrule directly
     if (frequency.rruleString) {
       return this.calculateNextWithRRule(currentDue, frequency, options);
