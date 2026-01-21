@@ -11,6 +11,12 @@
   let { taskName, onSelect, onClose }: Props = $props();
   let firstOption: HTMLButtonElement | null = $state(null);
 
+  function setFirstOption(node: HTMLElement, shouldSet: boolean) {
+    if (shouldSet) {
+      firstOption = node as HTMLButtonElement;
+    }
+  }
+
   onMount(() => {
     requestAnimationFrame(() => {
       firstOption?.focus();
@@ -40,7 +46,7 @@
     <div class="postpone-card__options" role="list">
       {#each POSTPONE_PRESETS as option, index}
         <button
-          bind:this={index === 0 ? firstOption : null}
+          use:setFirstOption={index === 0}
           class="postpone-card__option"
           type="button"
           role="listitem"
