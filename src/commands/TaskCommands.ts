@@ -8,15 +8,30 @@ import type { RecurrenceEngine } from "@/core/engine/RecurrenceEngine";
 import type { PluginSettings } from "@/core/settings/PluginSettings";
 import { StatusRegistry } from "@/core/models/StatusRegistry";
 import { pluginEventBus } from "@/core/events/PluginEventBus";
+import { CompletionHandler } from "@/core/actions/CompletionHandler";
+import type { SiYuanBlockAPI } from "@/core/actions/CompletionHandler";
 import * as logger from "@/utils/logger";
 import { toast } from "@/utils/notifications";
 
 export class TaskCommands {
+  private completionHandler?: CompletionHandler;
+
   constructor(
     private repository: TaskRepositoryProvider,
     private recurrenceEngine?: RecurrenceEngine,
-    private getSettings?: () => PluginSettings
-  ) {}
+    private getSettings?: () => PluginSettings,
+    private siyuanApi?: SiYuanBlockAPI
+  ) {
+    // Initialize CompletionHandler if we have required dependencies
+    if (recurrenceEngine && getSettings) {
+      this.completionHandler = new CompletionHandler(
+        repository,
+        recurrenceEngine,
+        getSettings(),
+        siyuanApi
+      );
+    }
+  }
 
   /**
    * Get current settings or undefined if not available
@@ -48,15 +63,41 @@ export class TaskCommands {
       if (newStatus.type === "DONE") {
         updatedTask.status = "done";
         
-        // Auto-add done date if enabled in settings
-        if (this.settings?.dates.autoAddDone && !updatedTask.doneAt) {
-          updatedTask.doneAt = new Date().toISOString();
+        // Use CompletionHandler for full orchestration
+        if (task.frequency && this.completionHandler) {
+          const result = await this.completionHandler.onComplete(
+            updatedTask,
+            new Date()
+          );
+          
+          if (result.success) {
+            if (result.nextTask) {
+              logger.info('Next recurrence created', { 
+                taskId: updatedTask.id,
+                nextTaskId: result.nextTask.id,
+                nextDue: result.nextTask.dueAt,
+              });
+              toast.success(`Task completed - next occurrence scheduled`);
+            } else {
+              toast.success(`Task status updated to ${newStatus.name}`);
+            }
+            
+            if (result.warnings) {
+              result.warnings.forEach(w => toast.warning(w));
+            }
+          } else {
+            toast.error(`Failed to complete task: ${result.error}`);
+          }
+        } else {
+          // No recurrence - simple completion
+          if (this.settings?.dates.autoAddDone && !updatedTask.doneAt) {
+            updatedTask.doneAt = new Date().toISOString();
+          }
+          await this.repository.saveTask(updatedTask);
+          toast.success(`Task status updated to ${newStatus.name}`);
         }
         
-        // Handle recurrence if needed
-        if (task.frequency && this.recurrenceEngine) {
-          await this.handleRecurrence(updatedTask);
-        }
+        pluginEventBus.emit("task:updated", { taskId });
       } else if (newStatus.type === "CANCELLED") {
         updatedTask.status = "cancelled";
         
@@ -64,13 +105,17 @@ export class TaskCommands {
         if (this.settings?.dates.autoAddCancelled && !updatedTask.cancelledAt) {
           updatedTask.cancelledAt = new Date().toISOString();
         }
+        
+        await this.repository.saveTask(updatedTask);
+        pluginEventBus.emit("task:updated", { taskId });
+        toast.success(`Task status updated to ${newStatus.name}`);
       } else if (newStatus.type === "TODO") {
         updatedTask.status = "todo";
+        
+        await this.repository.saveTask(updatedTask);
+        pluginEventBus.emit("task:updated", { taskId });
+        toast.success(`Task status updated to ${newStatus.name}`);
       }
-      
-      await this.repository.saveTask(updatedTask);
-      pluginEventBus.emit("task:updated", { taskId });
-      toast.success(`Task status updated to ${newStatus.name}`);
     } catch (error) {
       logger.error("Failed to toggle task status", error);
       toast.error("Failed to toggle status");
@@ -93,20 +138,41 @@ export class TaskCommands {
         status: "done" as const,
       };
       
-      // Auto-add done date if enabled in settings
-      if (this.settings?.dates.autoAddDone && !updatedTask.doneAt) {
-        updatedTask.doneAt = new Date().toISOString();
-      }
-
-      await this.repository.saveTask(updatedTask);
-      
-      // Handle recurrence if needed
-      if (task.frequency && this.recurrenceEngine) {
-        await this.handleRecurrence(updatedTask);
+      // Use CompletionHandler for full orchestration
+      if (task.frequency && this.completionHandler) {
+        const result = await this.completionHandler.onComplete(
+          updatedTask,
+          new Date()
+        );
+        
+        if (result.success) {
+          if (result.nextTask) {
+            logger.info('Next recurrence created', { 
+              taskId: updatedTask.id,
+              nextTaskId: result.nextTask.id,
+              nextDue: result.nextTask.dueAt,
+            });
+            toast.success(`Task "${task.name}" completed - next occurrence scheduled`);
+          } else {
+            toast.success(`Task "${task.name}" completed`);
+          }
+          
+          if (result.warnings) {
+            result.warnings.forEach(w => toast.warning(w));
+          }
+        } else {
+          toast.error(`Failed to complete task: ${result.error}`);
+        }
+      } else {
+        // No recurrence - simple completion
+        if (this.settings?.dates.autoAddDone && !updatedTask.doneAt) {
+          updatedTask.doneAt = new Date().toISOString();
+        }
+        await this.repository.saveTask(updatedTask);
+        toast.success(`Task "${task.name}" completed`);
       }
       
       pluginEventBus.emit("task:complete", { taskId });
-      toast.success(`Task "${task.name}" completed`);
     } catch (error) {
       logger.error("Failed to complete task", error);
       toast.error("Failed to complete task");
@@ -213,31 +279,4 @@ export class TaskCommands {
     }
   }
 
-  /**
-   * Handle recurrence when task is completed
-   */
-  private async handleRecurrence(task: Task): Promise<void> {
-    if (!task.frequency || !this.recurrenceEngine) {
-      return;
-    }
-
-    try {
-      // Generate next task instance
-      const nextTask = this.recurrenceEngine.calculateNext(task);
-      
-      // Handle onCompletion action
-      if (task.onCompletion === "delete") {
-        // Delete the current task
-        await this.repository.deleteTask(task.id);
-      }
-      
-      // Create next instance
-      await this.repository.saveTask(nextTask);
-      logger.info(`Created next recurrence for task: ${task.name}`);
-      toast.info(`Next occurrence scheduled`);
-    } catch (error) {
-      logger.error("Failed to handle recurrence", error);
-      toast.error("Failed to create next recurrence");
-    }
-  }
 }
