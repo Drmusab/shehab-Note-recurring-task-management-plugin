@@ -438,7 +438,13 @@
 
   {#if showSettings}
     <div class="dashboard__overlay">
-      <Settings {eventService} {shortcutManager} onClose={handleCloseSettings} />
+      <Settings
+        {eventService}
+        {shortcutManager}
+        {settingsService}
+        {repository}
+        onClose={handleCloseSettings}
+      />
     </div>
   {:else if showTaskForm}
     <div class="dashboard__overlay">

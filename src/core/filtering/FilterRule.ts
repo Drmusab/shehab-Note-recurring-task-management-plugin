@@ -1,3 +1,5 @@
+import type { StatusType } from '@/core/models/Status';
+
 export type FilterRuleType = 'tag' | 'regex' | 'path' | 'marker';
 
 export interface FilterRule {
@@ -12,6 +14,11 @@ export interface GlobalFilterConfig {
   enabled: boolean;
   mode: 'include' | 'exclude' | 'all';
   rules: FilterRule[];
+  excludeFolders: string[];
+  excludeNotebooks: string[];
+  excludeTags: string[];
+  excludeFilePatterns: string[];
+  excludeStatusTypes: StatusType[];
 }
 
 /**
@@ -74,4 +81,9 @@ export const DEFAULT_GLOBAL_FILTER_CONFIG: GlobalFilterConfig = {
   enabled: false,
   mode: 'all',
   rules: [],
+  excludeFolders: [],
+  excludeNotebooks: [],
+  excludeTags: [],
+  excludeFilePatterns: [],
+  excludeStatusTypes: [],
 };

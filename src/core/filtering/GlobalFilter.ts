@@ -1,6 +1,7 @@
 import { GlobalFilterEngine } from './GlobalFilterEngine';
 import type { GlobalFilterConfig } from './FilterRule';
 import { DEFAULT_GLOBAL_FILTER_CONFIG } from './FilterRule';
+import type { Task } from '@/core/models/Task';
 
 /**
  * Main entry point for global filtering
@@ -37,6 +38,13 @@ export class GlobalFilter {
    */
   shouldTreatAsTask(blockContent: string, blockPath?: string): boolean {
     return this.engine.evaluate(blockContent, blockPath);
+  }
+
+  /**
+   * Check if a parsed task should be included (for previews)
+   */
+  shouldIncludeTask(task: Task): boolean {
+    return this.engine.evaluateTask(task);
   }
 
   /**

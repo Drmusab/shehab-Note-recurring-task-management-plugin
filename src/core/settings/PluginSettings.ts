@@ -3,7 +3,10 @@
  */
 
 import type { FilenameDateConfig } from './FilenameDate';
-import type { GlobalFilterConfig } from './GlobalFilter';
+import type { GlobalFilterConfig } from '@/core/filtering/FilterRule';
+import type { GlobalQueryConfig } from '@/core/query/GlobalQuery';
+import { DEFAULT_GLOBAL_FILTER_CONFIG } from '@/core/filtering/FilterRule';
+import { DEFAULT_GLOBAL_QUERY_CONFIG } from '@/core/query/GlobalQuery';
 import { DEFAULT_URGENCY_SETTINGS, type UrgencySettings } from '@/core/urgency/UrgencySettings';
 
 /**
@@ -64,6 +67,9 @@ export interface PluginSettings {
   /** Global task filter (Phase 5) */
   globalFilter: GlobalFilterConfig;
 
+  /** Global query defaults */
+  globalQuery: GlobalQueryConfig;
+
   /** Urgency scoring configuration */
   urgency: UrgencySettings;
   
@@ -95,13 +101,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     folders: ['daily/', 'journal/'],
     targetField: 'scheduled',
   },
-  globalFilter: {
-    enabled: false,
-    mode: 'include',
-    tagPattern: undefined,
-    pathPattern: undefined,
-    regex: undefined,
-  },
+  globalFilter: DEFAULT_GLOBAL_FILTER_CONFIG,
+  globalQuery: DEFAULT_GLOBAL_QUERY_CONFIG,
   urgency: DEFAULT_URGENCY_SETTINGS,
 };
 
@@ -129,6 +130,15 @@ export function mergeSettings(userSettings: Partial<PluginSettings>): PluginSett
     globalFilter: {
       ...DEFAULT_SETTINGS.globalFilter,
       ...userSettings.globalFilter,
+      excludeFolders: userSettings.globalFilter?.excludeFolders ?? DEFAULT_SETTINGS.globalFilter.excludeFolders,
+      excludeNotebooks: userSettings.globalFilter?.excludeNotebooks ?? DEFAULT_SETTINGS.globalFilter.excludeNotebooks,
+      excludeTags: userSettings.globalFilter?.excludeTags ?? DEFAULT_SETTINGS.globalFilter.excludeTags,
+      excludeFilePatterns: userSettings.globalFilter?.excludeFilePatterns ?? DEFAULT_SETTINGS.globalFilter.excludeFilePatterns,
+      excludeStatusTypes: userSettings.globalFilter?.excludeStatusTypes ?? DEFAULT_SETTINGS.globalFilter.excludeStatusTypes,
+    },
+    globalQuery: {
+      ...DEFAULT_SETTINGS.globalQuery,
+      ...userSettings.globalQuery,
     },
     urgency: {
       ...DEFAULT_SETTINGS.urgency,

@@ -1,171 +1,149 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GlobalFilter, type GlobalFilterConfig } from '../GlobalFilter';
+import { GlobalFilterEngine } from '@/core/filtering/GlobalFilterEngine';
+import { createFilterRule, type GlobalFilterConfig } from '@/core/filtering/FilterRule';
 
-describe('GlobalFilter', () => {
-  let filter: GlobalFilter;
+describe('GlobalFilterEngine', () => {
+  let engine: GlobalFilterEngine;
   let config: GlobalFilterConfig;
 
   beforeEach(() => {
-    filter = new GlobalFilter();
     config = {
       enabled: true,
       mode: 'include',
+      rules: [],
+      excludeFolders: [],
+      excludeNotebooks: [],
+      excludeTags: [],
+      excludeFilePatterns: [],
+      excludeStatusTypes: [],
     };
+    engine = new GlobalFilterEngine(config);
   });
 
-  describe('isTask with disabled filter', () => {
+  describe('evaluate with disabled filter', () => {
     it('should treat all items as tasks when disabled', () => {
       config.enabled = false;
-      
-      expect(filter.isTask('- [ ] Task 1', 'any.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Task 2 #not-task', 'any.md', config)).toBe(true);
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Task 1', 'any.md')).toBe(true);
+      expect(engine.evaluate('- [ ] Task 2 #not-task', 'any.md')).toBe(true);
     });
   });
 
-  describe('isTask with include mode', () => {
-    it('should only include items with matching tag', () => {
+  describe('evaluate with include mode', () => {
+    it('should include items matching a tag rule', () => {
       config.mode = 'include';
-      config.tagPattern = '#task';
-      
-      expect(filter.isTask('- [ ] Review PR #task', 'any.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Buy milk', 'any.md', config)).toBe(false);
+      config.rules = [createFilterRule('tag', '#task')];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Review PR #task', 'any.md')).toBe(true);
+      expect(engine.evaluate('- [ ] Buy milk', 'any.md')).toBe(false);
     });
 
-    it('should only include items in matching path', () => {
+    it('should include items matching a path rule', () => {
       config.mode = 'include';
-      config.pathPattern = 'tasks/';
-      
-      expect(filter.isTask('- [ ] Do something', 'tasks/work.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Do something', 'shopping/list.md', config)).toBe(false);
+      config.rules = [createFilterRule('path', 'tasks/')];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Do something', 'tasks/work.md')).toBe(true);
+      expect(engine.evaluate('- [ ] Do something', 'shopping/list.md')).toBe(false);
     });
 
-    it('should only include items matching regex', () => {
+    it('should include items matching regex rule', () => {
       config.mode = 'include';
-      config.regex = '/\\[priority::/';
-      
-      expect(filter.isTask('- [ ] Task [priority:: high]', 'any.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Task without priority', 'any.md', config)).toBe(false);
+      config.rules = [createFilterRule('regex', '\\[priority::')];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Task [priority:: high]', 'any.md')).toBe(true);
+      expect(engine.evaluate('- [ ] Task without priority', 'any.md')).toBe(false);
     });
 
-    it('should require all patterns to match (AND logic)', () => {
+    it('should include items matching any rule (OR logic)', () => {
       config.mode = 'include';
-      config.tagPattern = '#task';
-      config.pathPattern = 'work/';
-      
-      expect(filter.isTask('- [ ] Do work #task', 'work/project.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Do work #task', 'personal/todo.md', config)).toBe(false);
-      expect(filter.isTask('- [ ] Do work', 'work/project.md', config)).toBe(false);
+      config.rules = [
+        createFilterRule('tag', '#task'),
+        createFilterRule('path', 'work/'),
+      ];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Do work #task', 'personal/todo.md')).toBe(true);
+      expect(engine.evaluate('- [ ] Do work', 'work/project.md')).toBe(true);
+      expect(engine.evaluate('- [ ] Do work', 'personal/todo.md')).toBe(false);
     });
 
-    it('should return false when no patterns are configured', () => {
+    it('should return true when no rules are configured', () => {
       config.mode = 'include';
-      // No patterns set
-      
-      expect(filter.isTask('- [ ] Any task', 'any.md', config)).toBe(false);
+      config.rules = [];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Any task', 'any.md')).toBe(true);
     });
   });
 
-  describe('isTask with exclude mode', () => {
+  describe('evaluate with exclude mode', () => {
     it('should exclude items with matching tag', () => {
       config.mode = 'exclude';
-      config.tagPattern = '#not-task';
-      
-      expect(filter.isTask('- [ ] Buy milk #not-task', 'any.md', config)).toBe(false);
-      expect(filter.isTask('- [ ] Review PR', 'any.md', config)).toBe(true);
+      config.rules = [createFilterRule('tag', '#not-task')];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Buy milk #not-task', 'any.md')).toBe(false);
+      expect(engine.evaluate('- [ ] Review PR', 'any.md')).toBe(true);
     });
 
     it('should exclude items in matching path', () => {
       config.mode = 'exclude';
-      config.pathPattern = 'shopping/';
-      
-      expect(filter.isTask('- [ ] Buy milk', 'shopping/list.md', config)).toBe(false);
-      expect(filter.isTask('- [ ] Review PR', 'work/tasks.md', config)).toBe(true);
+      config.rules = [createFilterRule('path', 'shopping/')];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Buy milk', 'shopping/list.md')).toBe(false);
+      expect(engine.evaluate('- [ ] Review PR', 'work/tasks.md')).toBe(true);
     });
 
     it('should exclude items matching regex', () => {
       config.mode = 'exclude';
-      config.regex = '/^- \\[ \\] Buy/';
-      
-      expect(filter.isTask('- [ ] Buy groceries', 'any.md', config)).toBe(false);
-      expect(filter.isTask('- [ ] Complete project', 'any.md', config)).toBe(true);
+      config.rules = [createFilterRule('regex', '^- \\[( |x)\\] Buy')];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Buy groceries', 'any.md')).toBe(false);
+      expect(engine.evaluate('- [ ] Complete project', 'any.md')).toBe(true);
     });
 
-    it('should exclude when all patterns match (AND logic)', () => {
+    it('should include all when no rules are configured', () => {
       config.mode = 'exclude';
-      config.tagPattern = '#shopping';
-      config.pathPattern = 'personal/';
-      
-      expect(filter.isTask('- [ ] Buy milk #shopping', 'personal/list.md', config)).toBe(false);
-      expect(filter.isTask('- [ ] Buy milk #shopping', 'work/notes.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Work task', 'personal/list.md', config)).toBe(true);
-    });
+      config.rules = [];
+      engine.updateConfig(config);
 
-    it('should include all when no patterns are configured', () => {
-      config.mode = 'exclude';
-      // No patterns set
-      
-      expect(filter.isTask('- [ ] Any task', 'any.md', config)).toBe(true);
-    });
-  });
-
-  describe('regex pattern matching', () => {
-    it('should handle regex with flags', () => {
-      config.mode = 'include';
-      config.regex = '/TASK/i'; // case insensitive
-      
-      expect(filter.isTask('- [ ] task in lowercase', 'any.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] TASK in uppercase', 'any.md', config)).toBe(true);
-    });
-
-    it('should handle regex without delimiters', () => {
-      config.mode = 'include';
-      config.regex = '\\[due::'; // without /.../ delimiters
-      
-      expect(filter.isTask('- [ ] Task [due:: 2025-01-18]', 'any.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Task without due', 'any.md', config)).toBe(false);
-    });
-
-    it('should handle invalid regex gracefully', () => {
-      config.mode = 'include';
-      config.regex = '/[invalid(/'; // malformed regex
-      
-      // Should return false for invalid regex
-      expect(filter.isTask('- [ ] Any task', 'any.md', config)).toBe(false);
+      expect(engine.evaluate('- [ ] Any task', 'any.md')).toBe(true);
     });
   });
 
   describe('path pattern matching', () => {
     it('should handle paths with backslashes', () => {
       config.mode = 'include';
-      config.pathPattern = 'tasks/';
-      
-      expect(filter.isTask('- [ ] Task', 'tasks\\work.md', config)).toBe(true);
+      config.rules = [createFilterRule('path', 'tasks/')];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Task', 'tasks\\work.md')).toBe(true);
     });
 
     it('should handle partial path matches', () => {
       config.mode = 'include';
-      config.pathPattern = 'daily/';
-      
-      expect(filter.isTask('- [ ] Task', 'work/daily/notes.md', config)).toBe(true);
+      config.rules = [createFilterRule('path', 'daily/')];
+      engine.updateConfig(config);
+
+      expect(engine.evaluate('- [ ] Task', 'work/daily/notes.md')).toBe(true);
     });
   });
 
   describe('tag pattern matching', () => {
     it('should match tags anywhere in line', () => {
       config.mode = 'include';
-      config.tagPattern = '#work';
-      
-      expect(filter.isTask('- [ ] #work Review PR', 'any.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Review PR #work', 'any.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Review #work PR', 'any.md', config)).toBe(true);
-    });
+      config.rules = [createFilterRule('tag', '#work')];
+      engine.updateConfig(config);
 
-    it('should be case-sensitive', () => {
-      config.mode = 'include';
-      config.tagPattern = '#task';
-      
-      expect(filter.isTask('- [ ] Do something #task', 'any.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Do something #TASK', 'any.md', config)).toBe(false);
+      expect(engine.evaluate('- [ ] #work Review PR', 'any.md')).toBe(true);
+      expect(engine.evaluate('- [ ] Review PR #work', 'any.md')).toBe(true);
+      expect(engine.evaluate('- [ ] Review #work PR', 'any.md')).toBe(true);
     });
   });
 });

@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { NotificationConfig } from "@/services/types";
   import type { EventService } from "@/services/EventService";
+  import type { SettingsService } from "@/core/settings/SettingsService";
+  import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
   import { DEFAULT_NOTIFICATION_CONFIG } from "@/utils/constants";
   import { toast } from "@/utils/notifications";
   import type { ShortcutManager, ShortcutDisplay } from "@/commands/ShortcutManager";
@@ -10,10 +12,12 @@
   interface Props {
     eventService: EventService;
     shortcutManager: ShortcutManager | null;
+    settingsService: SettingsService;
+    repository: TaskRepositoryProvider;
     onClose?: () => void;
   }
 
-  let { eventService, shortcutManager, onClose }: Props = $props();
+  let { eventService, shortcutManager, settingsService, repository, onClose }: Props = $props();
 
   let config = $state<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
   let testingChannel: string | null = $state(null);
@@ -127,7 +131,7 @@
         class="settings__nav-btn {activeSection === 'filter' ? 'active' : ''}"
         onclick={() => activeSection = 'filter'}
       >
-        Global Filter
+        Global Filtering & Query
       </button>
       <button 
         class="settings__nav-btn {activeSection === 'statuses' ? 'active' : ''}"
@@ -193,7 +197,7 @@
           {/if}
         </section>
       {:else if activeSection === 'filter'}
-        <GlobalFilterSettings />
+        <GlobalFilterSettings {settingsService} {repository} />
       {:else if activeSection === 'statuses'}
         <StatusRegistryEditor />
       {:else if activeSection === 'shortcuts'}

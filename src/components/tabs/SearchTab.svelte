@@ -2,6 +2,8 @@
   import type { Task } from "@/core/models/Task";
   import { QueryEngine, type TaskIndex } from "@/core/query/QueryEngine";
   import { QueryParser } from "@/core/query/QueryParser";
+  import { QueryComposer } from "@/core/query/QueryComposer";
+  import { GlobalQuery } from "@/core/query/GlobalQuery";
   import TaskCard from "../cards/TaskCard.svelte";
   import { toast } from "@/utils/notifications";
   import type { UrgencySettings } from "@/core/urgency/UrgencySettings";
@@ -51,6 +53,7 @@
 
   const urgencySettings = getContext<UrgencySettings | undefined>(URGENCY_SETTINGS_CONTEXT_KEY);
   const queryEngine = new QueryEngine(taskIndex, { urgencySettings });
+  const queryComposer = new QueryComposer(new QueryParser());
 
   function executeQuery() {
     if (!queryInput.trim()) {
@@ -63,8 +66,11 @@
     queryError = "";
 
     try {
-      const parser = new QueryParser();
-      const ast = parser.parse(queryInput);
+      const globalQuery = GlobalQuery.getInstance();
+      if (globalQuery.isEnabled() && globalQuery.getError()) {
+        throw new Error(`Global query error: ${globalQuery.getError()}`);
+      }
+      const ast = queryComposer.compose(queryInput, globalQuery.getAST()).ast;
       const result = queryEngine.execute(ast);
       
       queryResults = result.tasks;

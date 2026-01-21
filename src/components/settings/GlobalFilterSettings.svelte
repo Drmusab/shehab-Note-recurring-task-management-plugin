@@ -1,165 +1,314 @@
 <script lang="ts">
+  import type { SettingsService } from '@/core/settings/SettingsService';
+  import type { TaskRepositoryProvider } from '@/core/storage/TaskRepository';
   import { GlobalFilter } from '@/core/filtering/GlobalFilter';
-  import { createFilterRule, validateFilterRule, type FilterRule, type GlobalFilterConfig, type FilterRuleType } from '@/core/filtering/FilterRule';
+  import { DEFAULT_GLOBAL_FILTER_CONFIG, type GlobalFilterConfig } from '@/core/filtering/FilterRule';
+  import { GlobalQuery, DEFAULT_GLOBAL_QUERY_CONFIG, type GlobalQueryConfig } from '@/core/query/GlobalQuery';
+  import { StatusType } from '@/core/models/Status';
+  import { QueryParser } from '@/core/query/QueryParser';
+  import { explainQuery } from '@/core/query/QueryExplain';
+  import { pluginEventBus } from '@/core/events/PluginEventBus';
   import { toast } from '@/utils/notifications';
 
-  let globalFilter = GlobalFilter.getInstance();
-  let config = $state<GlobalFilterConfig>(globalFilter.getConfig());
-  
-  let newRuleType = $state<FilterRuleType>('tag');
-  let newRulePattern = $state('');
-  let newRuleDescription = $state('');
+  interface Props {
+    settingsService: SettingsService;
+    repository: TaskRepositoryProvider;
+  }
 
-  function addRule() {
-    if (!newRulePattern.trim()) {
-      toast.error('Pattern cannot be empty');
+  let { settingsService, repository }: Props = $props();
+
+  const globalFilter = GlobalFilter.getInstance();
+  const globalQuery = GlobalQuery.getInstance();
+
+  let filterConfig = $state<GlobalFilterConfig>(
+    settingsService.get().globalFilter ?? DEFAULT_GLOBAL_FILTER_CONFIG
+  );
+  let queryConfig = $state<GlobalQueryConfig>(
+    settingsService.get().globalQuery ?? DEFAULT_GLOBAL_QUERY_CONFIG
+  );
+
+  let folderDraft = $state('');
+  let notebookDraft = $state('');
+  let tagDraft = $state('');
+  let filePatternDraft = $state('');
+
+  let excludedPreview = $state<number | null>(null);
+  let queryValidation = $state<{ valid: boolean; message: string } | null>(null);
+  let queryExplanation = $state<string | null>(null);
+
+  const statusTypes = Object.values(StatusType);
+
+  $effect(() => {
+    updateExcludedPreview();
+  });
+
+  function normalizeList(list: string[]) {
+    return Array.from(new Set(list.map((item) => item.trim()).filter(Boolean)));
+  }
+
+  function addToList(key: keyof GlobalFilterConfig, value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+
+    filterConfig = {
+      ...filterConfig,
+      [key]: normalizeList([...(filterConfig[key] as string[]), trimmed]),
+    };
+    saveFilterConfig();
+  }
+
+  function removeFromList(key: keyof GlobalFilterConfig, value: string) {
+    filterConfig = {
+      ...filterConfig,
+      [key]: (filterConfig[key] as string[]).filter((item) => item !== value),
+    };
+    saveFilterConfig();
+  }
+
+  function toggleStatusType(type: StatusType) {
+    const current = new Set(filterConfig.excludeStatusTypes);
+    if (current.has(type)) {
+      current.delete(type);
+    } else {
+      current.add(type);
+    }
+    filterConfig = {
+      ...filterConfig,
+      excludeStatusTypes: Array.from(current),
+    };
+    saveFilterConfig();
+  }
+
+  async function saveFilterConfig() {
+    globalFilter.updateConfig(filterConfig);
+    await settingsService.update({ globalFilter: filterConfig });
+    pluginEventBus.emit('task:settings', { source: 'global-filter' });
+    updateExcludedPreview();
+  }
+
+  async function saveQueryConfig() {
+    globalQuery.updateConfig(queryConfig);
+    await settingsService.update({ globalQuery: queryConfig });
+    pluginEventBus.emit('task:settings', { source: 'global-query' });
+  }
+
+  function updateExcludedPreview() {
+    if (!repository) {
+      excludedPreview = null;
       return;
     }
+    const tasks = repository.getAllTasks();
+    excludedPreview = tasks.filter((task) => !globalFilter.shouldIncludeTask(task)).length;
+  }
 
-    const rule = createFilterRule(newRuleType, newRulePattern.trim(), newRuleDescription.trim());
-    const validation = validateFilterRule(rule);
-    
-    if (!validation.valid) {
-      toast.error(validation.error || 'Invalid rule');
-      return;
+  async function resetGlobalFilter() {
+    filterConfig = { ...DEFAULT_GLOBAL_FILTER_CONFIG };
+    await saveFilterConfig();
+    toast.success('Global filter reset to defaults');
+  }
+
+  async function resetGlobalQuery() {
+    queryConfig = { ...DEFAULT_GLOBAL_QUERY_CONFIG };
+    queryValidation = null;
+    queryExplanation = null;
+    await saveQueryConfig();
+    toast.success('Global query reset to defaults');
+  }
+
+  function validateGlobalQuery() {
+    const parser = new QueryParser();
+    try {
+      const ast = parser.parse(queryConfig.query || '');
+      queryValidation = { valid: true, message: 'Global query is valid.' };
+      queryExplanation = explainQuery(ast);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      queryValidation = { valid: false, message };
+      queryExplanation = null;
     }
-
-    config.rules.push(rule);
-    saveConfig();
-    
-    // Reset form
-    newRulePattern = '';
-    newRuleDescription = '';
-    
-    toast.success('Filter rule added');
-  }
-
-  function deleteRule(id: string) {
-    config.rules = config.rules.filter(r => r.id !== id);
-    saveConfig();
-    toast.success('Filter rule deleted');
-  }
-
-  function toggleRule(id: string) {
-    const rule = config.rules.find(r => r.id === id);
-    if (rule) {
-      rule.enabled = !rule.enabled;
-      saveConfig();
-    }
-  }
-
-  function saveConfig() {
-    globalFilter.updateConfig(config);
-  }
-
-  function handleModeChange() {
-    saveConfig();
-  }
-
-  function handleEnabledChange() {
-    saveConfig();
   }
 </script>
 
 <div class="global-filter-settings">
-  <h3 class="settings__section-title">Global Task Filter</h3>
+  <h3 class="settings__section-title">Global Filtering &amp; Query</h3>
   <p class="description">
-    Control which checkboxes are treated as tasks
+    Apply a hard exclusion filter before indexing, plus a default query fragment applied to every query.
   </p>
 
-  <div class="form-field">
-    <label class="settings__toggle">
-      <input type="checkbox" bind:checked={config.enabled} onchange={handleEnabledChange} />
-      <span>Enable Global Filter</span>
-    </label>
-  </div>
+  <section class="settings__section">
+    <div class="settings__section-header">
+      <h4 class="subsection-title">Global Filter (Hard Exclusions)</h4>
+      <label class="settings__toggle">
+        <input type="checkbox" bind:checked={filterConfig.enabled} onchange={saveFilterConfig} />
+        <span>Enable Global Filter</span>
+      </label>
+    </div>
 
-  <div class="form-field">
-    <label class="settings__label">Filter Mode</label>
-    <select bind:value={config.mode} onchange={handleModeChange} class="settings__input">
-      <option value="all">All checkboxes are tasks (default)</option>
-      <option value="include">Only checkboxes matching rules</option>
-      <option value="exclude">All except checkboxes matching rules</option>
-    </select>
-    <p class="hint">
-      {#if config.mode === 'all'}
-        All checkboxes will be treated as tasks (no filtering)
-      {:else if config.mode === 'include'}
-        Only checkboxes matching at least one rule will be treated as tasks
-      {:else if config.mode === 'exclude'}
-        Checkboxes matching any rule will be ignored
+    <div class="preview">
+      {#if excludedPreview !== null}
+        <span>Preview: {excludedPreview} tasks excluded (from current index)</span>
+      {:else}
+        <span>Preview unavailable</span>
       {/if}
-    </p>
-  </div>
+    </div>
 
-  <div class="rules-section">
-    <h4 class="subsection-title">Filter Rules</h4>
-    {#if config.rules.length === 0}
-      <p class="empty-state">No filter rules configured</p>
-    {:else}
-      <div class="rules-list">
-        {#each config.rules as rule}
-          <div class="rule-item">
-            <input 
-              type="checkbox" 
-              checked={rule.enabled} 
-              onchange={() => toggleRule(rule.id)}
-              class="rule-checkbox"
-            />
-            <div class="rule-info">
-              <span class="rule-type">{rule.type}</span>
-              <code class="rule-pattern">{rule.pattern}</code>
-              {#if rule.description}
-                <span class="rule-description">{rule.description}</span>
-              {/if}
-            </div>
-            <button class="delete-btn" onclick={() => deleteRule(rule.id)}>Delete</button>
-          </div>
+    <div class="form-field">
+      <label class="settings__label">Exclude Folders</label>
+      <div class="pill-list">
+        {#each filterConfig.excludeFolders as folder}
+          <button class="pill" type="button" onclick={() => removeFromList('excludeFolders', folder)}>
+            {folder} ✕
+          </button>
         {/each}
       </div>
-    {/if}
-  </div>
-
-  <div class="add-rule-section">
-    <h4 class="subsection-title">Add Rule</h4>
-    <div class="add-rule-form">
-      <select bind:value={newRuleType} class="settings__input">
-        <option value="tag">Tag (e.g., #task)</option>
-        <option value="regex">Regex pattern</option>
-        <option value="path">Document path (e.g., daily/)</option>
-        <option value="marker">Text marker (e.g., TODO:)</option>
-      </select>
-      <input 
-        type="text" 
-        bind:value={newRulePattern} 
-        placeholder="Pattern"
-        class="settings__input"
-      />
-      <input 
-        type="text" 
-        bind:value={newRuleDescription} 
-        placeholder="Description (optional)"
-        class="settings__input"
-      />
-      <button onclick={addRule} class="add-btn">Add Rule</button>
+      <div class="input-row">
+        <input
+          class="settings__input"
+          type="text"
+          placeholder="/archive/**"
+          bind:value={folderDraft}
+        />
+        <button class="add-btn" type="button" onclick={() => { addToList('excludeFolders', folderDraft); folderDraft = ''; }}>
+          Add
+        </button>
+      </div>
     </div>
-  </div>
 
-  <div class="examples">
-    <h4 class="subsection-title">Examples</h4>
-    <ul>
-      <li><strong>Tag:</strong> <code>#task</code> - Only checkboxes with #task tag</li>
-      <li><strong>Tag wildcard:</strong> <code>#work/*</code> - Any #work subtag</li>
-      <li><strong>Path:</strong> <code>projects/</code> - Only in projects folder</li>
-      <li><strong>Regex:</strong> <code>TODO:|TASK:</code> - Checkboxes with TODO: or TASK:</li>
-      <li><strong>Marker:</strong> <code>@action</code> - Checkboxes with @action marker</li>
-    </ul>
-  </div>
+    <div class="form-field">
+      <label class="settings__label">Exclude Notebooks</label>
+      <div class="pill-list">
+        {#each filterConfig.excludeNotebooks as notebook}
+          <button class="pill" type="button" onclick={() => removeFromList('excludeNotebooks', notebook)}>
+            {notebook} ✕
+          </button>
+        {/each}
+      </div>
+      <div class="input-row">
+        <input
+          class="settings__input"
+          type="text"
+          placeholder="Personal"
+          bind:value={notebookDraft}
+        />
+        <button class="add-btn" type="button" onclick={() => { addToList('excludeNotebooks', notebookDraft); notebookDraft = ''; }}>
+          Add
+        </button>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label class="settings__label">Exclude Tags</label>
+      <div class="pill-list">
+        {#each filterConfig.excludeTags as tag}
+          <button class="pill" type="button" onclick={() => removeFromList('excludeTags', tag)}>
+            {tag} ✕
+          </button>
+        {/each}
+      </div>
+      <div class="input-row">
+        <input
+          class="settings__input"
+          type="text"
+          placeholder="#log"
+          bind:value={tagDraft}
+        />
+        <button class="add-btn" type="button" onclick={() => { addToList('excludeTags', tagDraft); tagDraft = ''; }}>
+          Add
+        </button>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label class="settings__label">Exclude File Patterns (glob or /regex/)</label>
+      <div class="pill-list">
+        {#each filterConfig.excludeFilePatterns as pattern}
+          <button class="pill" type="button" onclick={() => removeFromList('excludeFilePatterns', pattern)}>
+            {pattern} ✕
+          </button>
+        {/each}
+      </div>
+      <div class="input-row">
+        <input
+          class="settings__input"
+          type="text"
+          placeholder="/templates/** or /daily/.+\.md/"
+          bind:value={filePatternDraft}
+        />
+        <button
+          class="add-btn"
+          type="button"
+          onclick={() => { addToList('excludeFilePatterns', filePatternDraft); filePatternDraft = ''; }}
+        >
+          Add
+        </button>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label class="settings__label">Exclude Status Types</label>
+      <div class="status-toggle-list">
+        {#each statusTypes as type}
+          <label class="status-toggle">
+            <input
+              type="checkbox"
+              checked={filterConfig.excludeStatusTypes.includes(type)}
+              onchange={() => toggleStatusType(type)}
+            />
+            <span>{type}</span>
+          </label>
+        {/each}
+      </div>
+    </div>
+
+    <button class="reset-btn" type="button" onclick={resetGlobalFilter}>Reset Global Filter</button>
+  </section>
+
+  <section class="settings__section">
+    <div class="settings__section-header">
+      <h4 class="subsection-title">Global Query (Default Conditions)</h4>
+      <label class="settings__toggle">
+        <input type="checkbox" bind:checked={queryConfig.enabled} onchange={saveQueryConfig} />
+        <span>Enable Global Query</span>
+      </label>
+    </div>
+
+    <div class="form-field">
+      <label class="settings__label">Global Query DSL</label>
+      <textarea
+        class="settings__input"
+        rows="4"
+        placeholder="not done\nnot blocked\ndue before next 30 days"
+        bind:value={queryConfig.query}
+      ></textarea>
+    </div>
+
+    <div class="query-actions">
+      <button class="add-btn" type="button" onclick={saveQueryConfig}>Save Global Query</button>
+      <button class="add-btn" type="button" onclick={validateGlobalQuery}>Validate / Explain</button>
+      <button class="reset-btn" type="button" onclick={resetGlobalQuery}>Reset Global Query</button>
+    </div>
+
+    {#if queryValidation}
+      <div class="validation {queryValidation.valid ? 'success' : 'error'}">
+        {queryValidation.message}
+      </div>
+    {/if}
+
+    {#if queryExplanation}
+      <pre class="query-explanation">{queryExplanation}</pre>
+    {/if}
+
+    <p class="hint">
+      Use <code>ignore global query</code> on a local query line to bypass the global query for that block.
+    </p>
+  </section>
 </div>
 
 <style>
   .global-filter-settings {
-    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
   }
 
   .settings__section-title {
@@ -170,31 +319,47 @@
   }
 
   .description {
-    margin: 0 0 16px 0;
+    margin: 0 0 12px 0;
     font-size: 14px;
     color: var(--b3-theme-on-surface-light);
   }
 
-  .form-field {
-    margin-bottom: 20px;
+  .settings__section {
+    padding: 16px;
+    border: 1px solid var(--b3-border-color);
+    border-radius: 8px;
+    background: var(--b3-theme-surface);
+  }
+
+  .settings__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 12px;
+  }
+
+  .subsection-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--b3-theme-on-surface);
   }
 
   .settings__toggle {
     display: flex;
     align-items: center;
     gap: 8px;
-    cursor: pointer;
-    font-size: 14px;
   }
 
-  .settings__toggle input {
-    cursor: pointer;
+  .form-field {
+    margin-bottom: 16px;
   }
 
   .settings__label {
     display: block;
     margin-bottom: 6px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--b3-theme-on-surface);
   }
@@ -210,155 +375,95 @@
     box-sizing: border-box;
   }
 
-  .settings__input:focus {
-    outline: none;
-    border-color: var(--b3-theme-primary);
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .add-btn,
+  .reset-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--b3-border-color);
+    background: var(--b3-theme-surface-light);
+    color: var(--b3-theme-on-surface);
+    cursor: pointer;
+  }
+
+  .reset-btn {
+    margin-top: 8px;
+  }
+
+  .pill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pill {
+    border: 1px solid var(--b3-border-color);
+    border-radius: 999px;
+    padding: 4px 10px;
+    background: var(--b3-theme-surface-light);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .status-toggle-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .status-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .preview {
+    font-size: 12px;
+    color: var(--b3-theme-on-surface-light);
+    margin-bottom: 12px;
+  }
+
+  .query-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .validation {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .validation.success {
+    background: rgba(76, 175, 80, 0.15);
+    color: var(--b3-theme-on-surface);
+  }
+
+  .validation.error {
+    background: rgba(244, 67, 54, 0.15);
+    color: var(--b3-theme-on-surface);
+  }
+
+  .query-explanation {
+    padding: 12px;
+    border-radius: 6px;
+    background: var(--b3-theme-surface-light);
+    border: 1px solid var(--b3-border-color);
+    font-size: 12px;
+    white-space: pre-wrap;
   }
 
   .hint {
-    margin: 6px 0 0 0;
-    font-size: 13px;
-    color: var(--b3-theme-on-surface-light);
-  }
-
-  .rules-section,
-  .add-rule-section,
-  .examples {
-    margin-top: 24px;
-  }
-
-  .subsection-title {
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--b3-theme-on-surface);
-  }
-
-  .empty-state {
-    margin: 0;
-    padding: 16px;
-    text-align: center;
-    font-size: 14px;
-    color: var(--b3-theme-on-surface-light);
-    background: var(--b3-theme-surface-lighter);
-    border-radius: 6px;
-  }
-
-  .rules-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .rule-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    border: 1px solid var(--b3-border-color);
-    border-radius: 6px;
-    background: var(--b3-theme-surface);
-  }
-
-  .rule-checkbox {
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .rule-info {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .rule-type {
-    display: inline-block;
-    padding: 2px 8px;
-    font-size: 11px;
-    font-weight: 500;
-    text-transform: uppercase;
-    color: var(--b3-theme-primary);
-    background: var(--b3-theme-primary-lighter);
-    border-radius: 4px;
-  }
-
-  .rule-pattern {
-    font-family: monospace;
-    font-size: 13px;
-    padding: 2px 6px;
-    background: var(--b3-theme-surface-lighter);
-    border-radius: 3px;
-  }
-
-  .rule-description {
-    font-size: 13px;
-    color: var(--b3-theme-on-surface-light);
-  }
-
-  .delete-btn {
-    padding: 6px 12px;
-    font-size: 13px;
-    color: var(--b3-theme-error);
-    background: transparent;
-    border: 1px solid var(--b3-theme-error);
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .delete-btn:hover {
-    background: var(--b3-theme-error);
-    color: white;
-  }
-
-  .add-rule-form {
-    display: grid;
-    grid-template-columns: 150px 1fr 1fr auto;
-    gap: 8px;
-    align-items: center;
-  }
-
-  @media (max-width: 768px) {
-    .add-rule-form {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .add-btn {
-    padding: 8px 16px;
-    font-size: 14px;
-    font-weight: 500;
-    color: white;
-    background: var(--b3-theme-primary);
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.2s;
-    white-space: nowrap;
-  }
-
-  .add-btn:hover {
-    background: var(--b3-theme-primary-light);
-  }
-
-  .examples ul {
-    margin: 0;
-    padding-left: 20px;
-  }
-
-  .examples li {
-    margin-bottom: 8px;
-    font-size: 13px;
-    color: var(--b3-theme-on-surface);
-  }
-
-  .examples code {
-    font-family: monospace;
     font-size: 12px;
-    padding: 2px 4px;
-    background: var(--b3-theme-surface-lighter);
-    border-radius: 3px;
+    color: var(--b3-theme-on-surface-light);
   }
 </style>

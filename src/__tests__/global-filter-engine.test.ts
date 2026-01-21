@@ -11,6 +11,11 @@ describe('GlobalFilterEngine', () => {
       enabled: true,
       mode: 'include',
       rules: [],
+      excludeFolders: [],
+      excludeNotebooks: [],
+      excludeTags: [],
+      excludeFilePatterns: [],
+      excludeStatusTypes: [],
     };
     engine = new GlobalFilterEngine(config);
   });
@@ -237,6 +242,11 @@ describe('GlobalFilterEngine', () => {
         enabled: true,
         mode: 'exclude',
         rules: [createFilterRule('tag', '#skip')],
+        excludeFolders: [],
+        excludeNotebooks: [],
+        excludeTags: [],
+        excludeFilePatterns: [],
+        excludeStatusTypes: [],
       };
 
       engine.updateConfig(newConfig);

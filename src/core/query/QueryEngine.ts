@@ -28,6 +28,7 @@ import { DueDateGrouper, ScheduledDateGrouper } from './groupers/DateGrouper';
 import { StatusTypeGrouper, StatusNameGrouper } from './groupers/StatusGrouper';
 import { PriorityGrouper } from './groupers/PriorityGrouper';
 import { FolderGrouper, PathGrouper, TagGrouper } from './groupers/PathGrouper';
+import { explainQuery } from './QueryExplain';
 
 /**
  * Execute queries against task index
@@ -405,101 +406,6 @@ export class QueryEngine {
    * Generate human-readable explanation of query
    */
   private generateExplanation(query: QueryAST): string {
-    const parts: string[] = [];
-    
-    // Explain filters
-    if (query.filters.length > 0) {
-      parts.push('**Filters:**');
-      for (const filter of query.filters) {
-        parts.push(`- ${this.explainFilter(filter)}`);
-      }
-    } else {
-      parts.push('**Filters:** None (showing all tasks)');
-    }
-    
-    // Explain sorting
-    if (query.sort) {
-      const direction = query.sort.reverse ? 'descending' : 'ascending';
-      parts.push(`\n**Sort:** By ${query.sort.field} (${direction})`);
-    }
-    
-    // Explain grouping
-    if (query.group) {
-      parts.push(`\n**Group:** By ${query.group.field}`);
-    }
-    
-    // Explain limit
-    if (query.limit !== undefined && query.limit > 0) {
-      parts.push(`\n**Limit:** First ${query.limit} tasks`);
-    }
-    
-    return parts.join('\n');
-  }
-
-  /**
-   * Explain a single filter node
-   */
-  private explainFilter(filter: FilterNode): string {
-    const negate = filter.negate ? 'NOT ' : '';
-    
-    switch (filter.type) {
-      case 'status':
-        return `${negate}Status ${filter.operator} "${filter.value}"`;
-      
-      case 'date':
-        return `${negate}${filter.value.field} ${filter.value.comparator} ${filter.value.date}`;
-      
-      case 'priority':
-        return `${negate}Priority ${filter.operator} ${filter.value}`;
-
-      case 'urgency':
-        return `${negate}Urgency ${filter.operator} ${filter.value}`;
-      
-      case 'tag':
-        if (filter.operator === 'includes') {
-          return `${negate}Tag includes "${filter.value}"`;
-        } else if (filter.operator === 'has') {
-          return `${negate}Has tags`;
-        }
-        return `${negate}Tag ${filter.operator} "${filter.value}"`;
-      
-      case 'path':
-        return `${negate}Path ${filter.operator} "${filter.value}"`;
-      
-      case 'dependency':
-        if (filter.value === 'blocked') {
-          return `${negate}Is blocked by dependencies`;
-        } else if (filter.value === 'blocking') {
-          return `${negate}Is blocking other tasks`;
-        }
-        return `${negate}Dependency ${filter.operator}`;
-      
-      case 'recurrence':
-        return `${negate}Is recurring`;
-      
-      case 'boolean':
-        if (filter.left && filter.right) {
-          const leftExpl = this.explainFilter(filter.left);
-          const rightExpl = this.explainFilter(filter.right);
-          return `(${leftExpl}) ${filter.operator.toUpperCase()} (${rightExpl})`;
-        }
-        if (filter.inner) {
-          return `NOT (${this.explainFilter(filter.inner)})`;
-        }
-        return `${negate}Boolean ${filter.operator}`;
-      
-      case 'done':
-        if (filter.value) {
-          return `${negate}Task is done`;
-        } else {
-          return `${negate}Task is not done`;
-        }
-      
-      case 'description':
-        return `${negate}Description ${filter.operator} "${filter.value}"`;
-      
-      default:
-        return `${negate}${filter.type} ${filter.operator} ${JSON.stringify(filter.value)}`;
-    }
+    return explainQuery(query);
   }
 }

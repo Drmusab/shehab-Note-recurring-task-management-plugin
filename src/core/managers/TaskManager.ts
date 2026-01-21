@@ -4,6 +4,8 @@ import { TaskRepository, type TaskRepositoryProvider } from "@/core/storage/Task
 import { Scheduler } from "@/core/engine/Scheduler";
 import { EventService } from "@/services/EventService";
 import { SettingsService } from "@/core/settings/SettingsService";
+import { GlobalFilter } from "@/core/filtering/GlobalFilter";
+import { GlobalQuery } from "@/core/query/GlobalQuery";
 import { SCHEDULER_INTERVAL_MS } from "@/utils/constants";
 import * as logger from "@/utils/logger";
 
@@ -54,6 +56,9 @@ export class TaskManager {
     // Initialize settings service
     this.settingsService = new SettingsService(this.plugin);
     await this.settingsService.load();
+    const settings = this.settingsService.get();
+    GlobalFilter.getInstance().initialize(settings.globalFilter);
+    GlobalQuery.getInstance().initialize(settings.globalQuery);
 
     // Initialize storage
     this.storage = new TaskStorage(this.plugin);

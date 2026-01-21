@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DependencyGraph } from '@/core/engine/DependencyGraph';
 import { FilenameDateExtractor, type FilenameDateConfig } from '@/core/settings/FilenameDate';
-import { GlobalFilter, type GlobalFilterConfig } from '@/core/settings/GlobalFilter';
+import { GlobalFilterEngine } from '@/core/filtering/GlobalFilterEngine';
+import { createFilterRule, type GlobalFilterConfig } from '@/core/filtering/FilterRule';
 import { QueryEngine, type TaskIndex } from '@/core/query/QueryEngine';
 import { createTask } from '@/core/models/Task';
 import type { Task } from '@/core/models/Task';
@@ -232,55 +233,77 @@ describe('Phase 5 Integration', () => {
       const config: GlobalFilterConfig = {
         enabled: true,
         mode: 'include',
-        tagPattern: '#task',
+        rules: [createFilterRule('tag', '#task')],
+        excludeFolders: [],
+        excludeNotebooks: [],
+        excludeTags: [],
+        excludeFilePatterns: [],
+        excludeStatusTypes: [],
       };
 
-      const filter = new GlobalFilter();
+      const filter = new GlobalFilterEngine(config);
 
-      expect(filter.isTask('- [ ] Buy milk', 'any.md', config)).toBe(false);
-      expect(filter.isTask('- [ ] Review PR #task', 'any.md', config)).toBe(true);
+      expect(filter.evaluate('- [ ] Buy milk', 'any.md')).toBe(false);
+      expect(filter.evaluate('- [ ] Review PR #task', 'any.md')).toBe(true);
     });
 
     it('should filter tasks based on path pattern in exclude mode', () => {
       const config: GlobalFilterConfig = {
         enabled: true,
         mode: 'exclude',
-        pathPattern: 'shopping/',
+        rules: [createFilterRule('path', 'shopping/')],
+        excludeFolders: [],
+        excludeNotebooks: [],
+        excludeTags: [],
+        excludeFilePatterns: [],
+        excludeStatusTypes: [],
       };
 
-      const filter = new GlobalFilter();
+      const filter = new GlobalFilterEngine(config);
 
-      expect(filter.isTask('- [ ] Buy milk', 'shopping/list.md', config)).toBe(false);
-      expect(filter.isTask('- [ ] Review PR', 'work/tasks.md', config)).toBe(true);
+      expect(filter.evaluate('- [ ] Buy milk', 'shopping/list.md')).toBe(false);
+      expect(filter.evaluate('- [ ] Review PR', 'work/tasks.md')).toBe(true);
     });
 
     it('should support combined tag and path patterns', () => {
       const config: GlobalFilterConfig = {
         enabled: true,
         mode: 'include',
-        tagPattern: '#task',
-        pathPattern: 'work/',
+        rules: [
+          createFilterRule('tag', '#task'),
+          createFilterRule('path', 'work/'),
+        ],
+        excludeFolders: [],
+        excludeNotebooks: [],
+        excludeTags: [],
+        excludeFilePatterns: [],
+        excludeStatusTypes: [],
       };
 
-      const filter = new GlobalFilter();
+      const filter = new GlobalFilterEngine(config);
 
       // Must match both tag AND path
-      expect(filter.isTask('- [ ] Review PR #task', 'work/tasks.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Review PR #task', 'personal/todo.md', config)).toBe(false);
-      expect(filter.isTask('- [ ] Review PR', 'work/tasks.md', config)).toBe(false);
+      expect(filter.evaluate('- [ ] Review PR #task', 'work/tasks.md')).toBe(true);
+      expect(filter.evaluate('- [ ] Review PR #task', 'personal/todo.md')).toBe(false);
+      expect(filter.evaluate('- [ ] Review PR', 'work/tasks.md')).toBe(false);
     });
 
     it('should support regex patterns', () => {
       const config: GlobalFilterConfig = {
         enabled: true,
         mode: 'include',
-        regex: '/\\[priority::/i',
+        rules: [createFilterRule('regex', '/\\[priority::/i')],
+        excludeFolders: [],
+        excludeNotebooks: [],
+        excludeTags: [],
+        excludeFilePatterns: [],
+        excludeStatusTypes: [],
       };
 
-      const filter = new GlobalFilter();
+      const filter = new GlobalFilterEngine(config);
 
-      expect(filter.isTask('- [ ] Task [priority:: high]', 'any.md', config)).toBe(true);
-      expect(filter.isTask('- [ ] Task without priority', 'any.md', config)).toBe(false);
+      expect(filter.evaluate('- [ ] Task [priority:: high]', 'any.md')).toBe(true);
+      expect(filter.evaluate('- [ ] Task without priority', 'any.md')).toBe(false);
     });
   });
 
@@ -320,9 +343,14 @@ describe('Phase 5 Integration', () => {
       const filterConfig: GlobalFilterConfig = {
         enabled: true,
         mode: 'include',
-        tagPattern: '#task',
+        rules: [createFilterRule('tag', '#task')],
+        excludeFolders: [],
+        excludeNotebooks: [],
+        excludeTags: [],
+        excludeFilePatterns: [],
+        excludeStatusTypes: [],
       };
-      const filter = new GlobalFilter();
+      const filter = new GlobalFilterEngine(filterConfig);
 
       // Verify dependencies work
       expect(graph.isBlocked('b')).toBe(true);
@@ -333,8 +361,8 @@ describe('Phase 5 Integration', () => {
       expect(taskBWithDate.scheduledAt).toBeDefined();
 
       // Verify global filter works
-      expect(filter.isTask(taskA.name, 'daily/2025-01-18.md', filterConfig)).toBe(true);
-      expect(filter.isTask(taskB.name, 'daily/2025-01-18.md', filterConfig)).toBe(true);
+      expect(filter.evaluate(taskA.name, 'daily/2025-01-18.md')).toBe(true);
+      expect(filter.evaluate(taskB.name, 'daily/2025-01-18.md')).toBe(true);
     });
   });
 });

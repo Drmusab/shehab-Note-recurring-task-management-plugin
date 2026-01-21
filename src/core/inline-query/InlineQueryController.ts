@@ -4,6 +4,8 @@ import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
 import type { SettingsService } from "@/core/settings/SettingsService";
 import { QueryEngine } from "@/core/query/QueryEngine";
 import { QueryParser } from "@/core/query/QueryParser";
+import { QueryComposer } from "@/core/query/QueryComposer";
+import { GlobalQuery } from "@/core/query/GlobalQuery";
 import { pluginEventBus } from "@/core/events/PluginEventBus";
 import * as logger from "@/utils/logger";
 import {
@@ -34,6 +36,7 @@ export class InlineQueryController {
   private parser = new InlineQueryBlockParser();
   private renderer = new InlineQueryRenderer();
   private cache = new InlineQueryCache();
+  private queryComposer = new QueryComposer(new QueryParser());
   private blocks = new Map<string, InlineQueryBlockState>();
   private refreshTimer?: number;
   private indexReady = false;
@@ -172,8 +175,11 @@ export class InlineQueryController {
       getAllTasks: () => this.options.repository.getAllTasks(),
     };
     const engine = new QueryEngine(taskIndex, { urgencySettings: settings.urgency });
-    const parser = new QueryParser();
-    const ast = parser.parse(queryText);
+    const globalQuery = GlobalQuery.getInstance();
+    if (globalQuery.isEnabled() && globalQuery.getError()) {
+      throw new Error(`Global query error: ${globalQuery.getError()}`);
+    }
+    const ast = this.queryComposer.compose(queryText, globalQuery.getAST()).ast;
     const result = engine.execute(ast);
     this.cache.set(cacheKey, result);
     return result;
