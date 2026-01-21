@@ -15,6 +15,27 @@ A powerful recurring task management plugin for Shehab-Note (SiYuan fork) with a
 - **All Tasks View** - Comprehensive task management with enable/disable toggles
 - **Timeline View** - Visual calendar showing upcoming tasks for the next 30 days
 
+### 🤖 AI-Driven Features (NEW)
+- **Smart Suggestions** - AI-powered recommendations based on completion patterns
+  - Abandonment detection for never-completed tasks
+  - Reschedule suggestions based on when you actually complete tasks
+  - Urgency alerts for frequently missed tasks
+  - Frequency optimization for tasks you complete more often than scheduled
+  - Consolidation suggestions for similar tasks
+  - Delegation recommendations based on delay patterns
+- **Predictive Scheduling** - ML-based time slot scoring
+  - Analyzes historical success rates
+  - Considers workload balance and task density
+  - Respects user preferences and energy levels
+  - Minimizes context switching
+- **Keyboard Navigation** - Vim-like shortcuts for power users
+  - Full keyboard control (j/k navigation, dd delete, yy duplicate)
+  - Multiple modes: Normal, Insert, Visual, Command
+  - Command palette for advanced operations
+  - Customizable keybindings
+
+See [AI Features Documentation](docs/AI_FEATURES.md) for detailed information.
+
 ### 🔔 Multi-Channel Notifications
 - **n8n** - Webhook integration for workflow automation
 - **Telegram** - Direct messaging via Telegram Bot API

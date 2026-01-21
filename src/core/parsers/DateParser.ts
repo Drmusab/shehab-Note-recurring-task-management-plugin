@@ -1,10 +1,20 @@
 import * as chrono from 'chrono-node';
+import { getUserTimezone } from '@/utils/timezone';
+import { formatDateTime, setTime, endOfDay, addDays, addWeeks } from '@/utils/date';
 
 export interface ParsedDate {
   date: Date | null;
   isValid: boolean;
   error?: string;
   original: string;
+}
+
+export interface DateSuggestion {
+  text: string;           // Display text (e.g., "Tomorrow")
+  value: string;          // Parsed ISO date
+  description: string;    // Human-readable (e.g., "Fri, Jan 26, 2024")
+  category: 'relative' | 'named' | 'specific' | 'shortcut';
+  icon?: string;          // Optional emoji/icon
 }
 
 export class DateParser {
@@ -157,5 +167,261 @@ export class DateParser {
    */
   static toISODateString(date: Date): string {
     return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * Parse natural language date input to Date object
+   * Supports all common expressions and shortcuts
+   */
+  static parseNaturalLanguageDate(input: string, referenceDate: Date = new Date()): Date | null {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+
+    // Handle shortcuts first
+    const shortcuts = DateParser.handleShortcuts(trimmed, referenceDate);
+    if (shortcuts) return shortcuts;
+
+    // Try chrono-node for comprehensive parsing
+    try {
+      const parsed = chrono.parseDate(trimmed, referenceDate, { forwardDate: true });
+      if (parsed) {
+        return parsed;
+      }
+    } catch (error) {
+      // Fall through to legacy parsing
+    }
+
+    // Use legacy parser as fallback
+    const result = DateParser.parse(trimmed, referenceDate);
+    return result.date;
+  }
+
+  /**
+   * Parse natural language date to ISO string for storage
+   */
+  static parseToISO(input: string, referenceDate: Date = new Date()): string | null {
+    const date = DateParser.parseNaturalLanguageDate(input, referenceDate);
+    return date ? date.toISOString() : null;
+  }
+
+  /**
+   * Check if a string appears to be a date expression
+   */
+  static isDateExpression(input: string): boolean {
+    const trimmed = input.trim().toLowerCase();
+    if (!trimmed) return false;
+
+    // Common date keywords
+    const keywords = [
+      'today', 'tomorrow', 'yesterday',
+      'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+      'next', 'last', 'this',
+      'week', 'month', 'year',
+      'day', 'days', 'ago',
+      'eod', 'eow', 'eom',
+      'in ', 'at '
+    ];
+
+    if (keywords.some(kw => trimmed.includes(kw))) {
+      return true;
+    }
+
+    // Check if chrono can parse it
+    try {
+      const parsed = chrono.parseDate(trimmed, new Date());
+      return parsed !== null;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get date suggestions for autocomplete
+   */
+  static getDateSuggestions(partialInput: string, referenceDate: Date = new Date()): DateSuggestion[] {
+    const suggestions: DateSuggestion[] = [];
+    const input = partialInput.trim().toLowerCase();
+    const today = new Date(referenceDate);
+    today.setHours(0, 0, 0, 0);
+
+    // Relative dates
+    const relativeDates = [
+      { text: 'Today', offset: 0, icon: '📅' },
+      { text: 'Tomorrow', offset: 1, icon: '➡️' },
+      { text: 'In 2 days', offset: 2, icon: '📆' },
+      { text: 'In 3 days', offset: 3, icon: '📆' },
+      { text: 'In 1 week', offset: 7, icon: '📆' },
+      { text: 'In 2 weeks', offset: 14, icon: '📆' },
+    ];
+
+    for (const rel of relativeDates) {
+      if (!input || rel.text.toLowerCase().includes(input)) {
+        const date = addDays(today, rel.offset);
+        suggestions.push({
+          text: rel.text,
+          value: date.toISOString(),
+          description: DateParser.formatDateForDisplay(date, false),
+          category: 'relative',
+          icon: rel.icon
+        });
+      }
+    }
+
+    // Named days (next occurrence)
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    for (let i = 0; i < dayNames.length; i++) {
+      const dayName = dayNames[i];
+      if (!input || dayName.toLowerCase().includes(input) || `next ${dayName}`.toLowerCase().includes(input)) {
+        const currentDay = today.getDay();
+        const targetDay = i; // Monday = 0 in our array, but Sunday = 0 in Date.getDay()
+        const adjustedTargetDay = (targetDay + 1) % 7; // Convert our index to Date.getDay() format
+        let daysToAdd = adjustedTargetDay - currentDay;
+        if (daysToAdd <= 0) daysToAdd += 7;
+        
+        const date = addDays(today, daysToAdd);
+        suggestions.push({
+          text: dayName,
+          value: date.toISOString(),
+          description: DateParser.formatDateForDisplay(date, false),
+          category: 'named',
+          icon: '📅'
+        });
+      }
+    }
+
+    // Shortcuts
+    const shortcuts = [
+      { text: 'EOD (end of day)', keyword: 'eod', icon: '🌆' },
+      { text: 'EOW (end of week)', keyword: 'eow', icon: '🏁' },
+      { text: 'EOM (end of month)', keyword: 'eom', icon: '📊' },
+    ];
+
+    for (const shortcut of shortcuts) {
+      if (!input || shortcut.text.toLowerCase().includes(input) || shortcut.keyword.includes(input)) {
+        const date = DateParser.handleShortcuts(shortcut.keyword, referenceDate);
+        if (date) {
+          suggestions.push({
+            text: shortcut.text,
+            value: date.toISOString(),
+            description: DateParser.formatDateForDisplay(date, true),
+            category: 'shortcut',
+            icon: shortcut.icon
+          });
+        }
+      }
+    }
+
+    // Next month
+    if (!input || 'next month'.includes(input)) {
+      const nextMonth = new Date(today);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      suggestions.push({
+        text: 'Next month',
+        value: nextMonth.toISOString(),
+        description: DateParser.formatDateForDisplay(nextMonth, false),
+        category: 'relative',
+        icon: '📆'
+      });
+    }
+
+    return suggestions.slice(0, 8); // Return top 8 suggestions
+  }
+
+  /**
+   * Format date for human-readable display
+   */
+  static formatDateForDisplay(date: Date, includeTime: boolean = false): string {
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    };
+
+    if (includeTime) {
+      options.hour = '2-digit';
+      options.minute = '2-digit';
+    }
+
+    return date.toLocaleString(undefined, options);
+  }
+
+  /**
+   * Parse time from natural language (e.g., "9am", "2:30pm", "14:00")
+   */
+  static parseTime(input: string): { hours: number; minutes: number } | null {
+    const trimmed = input.trim().toLowerCase();
+    
+    // 24-hour format (14:00, 09:30)
+    const time24Match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+    if (time24Match) {
+      const hours = parseInt(time24Match[1]);
+      const minutes = parseInt(time24Match[2]);
+      if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+        return { hours, minutes };
+      }
+    }
+
+    // 12-hour format with am/pm (9am, 2:30pm, 3:45 pm)
+    const time12Match = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+    if (time12Match) {
+      let hours = parseInt(time12Match[1]);
+      const minutes = time12Match[2] ? parseInt(time12Match[2]) : 0;
+      const period = time12Match[3];
+
+      if (period === 'pm' && hours !== 12) {
+        hours += 12;
+      } else if (period === 'am' && hours === 12) {
+        hours = 0;
+      }
+
+      if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+        return { hours, minutes };
+      }
+    }
+
+    // Try chrono for more complex time expressions
+    try {
+      const parsed = chrono.parseDate(trimmed, new Date());
+      if (parsed) {
+        return { hours: parsed.getHours(), minutes: parsed.getMinutes() };
+      }
+    } catch {
+      // Ignore
+    }
+
+    return null;
+  }
+
+  /**
+   * Handle shortcut keywords (eod, eow, eom)
+   */
+  private static handleShortcuts(input: string, referenceDate: Date): Date | null {
+    const trimmed = input.trim().toLowerCase();
+    const today = new Date(referenceDate);
+    today.setHours(0, 0, 0, 0);
+
+    switch (trimmed) {
+      case 'eod':
+        // End of day - 5:00 PM today
+        return setTime(today, 17, 0);
+      
+      case 'eow': {
+        // End of week - Friday 5:00 PM
+        const currentDay = today.getDay();
+        const daysUntilFriday = currentDay <= 5 ? 5 - currentDay : 7 - currentDay + 5;
+        const friday = addDays(today, daysUntilFriday);
+        return setTime(friday, 17, 0);
+      }
+      
+      case 'eom': {
+        // End of month - last day at 5:00 PM
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        return setTime(lastDay, 17, 0);
+      }
+      
+      default:
+        return null;
+    }
   }
 }

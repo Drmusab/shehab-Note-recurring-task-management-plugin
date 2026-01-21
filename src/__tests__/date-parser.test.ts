@@ -302,4 +302,180 @@ describe('DateParser', () => {
       expect(result.date!.getMilliseconds()).toBe(0);
     });
   });
+
+  describe('parseNaturalLanguageDate', () => {
+    it('should parse "tomorrow"', () => {
+      const result = DateParser.parseNaturalLanguageDate('tomorrow', referenceDate);
+      expect(result).not.toBeNull();
+      expect(result!.toISOString().split('T')[0]).toBe('2024-01-16');
+    });
+
+    it('should parse "next Friday"', () => {
+      const result = DateParser.parseNaturalLanguageDate('next Friday', referenceDate);
+      expect(result).not.toBeNull();
+      expect(result!.toISOString().split('T')[0]).toBe('2024-01-26');
+    });
+
+    it('should parse "in 3 days"', () => {
+      const result = DateParser.parseNaturalLanguageDate('in 3 days', referenceDate);
+      expect(result).not.toBeNull();
+      expect(result!.toISOString().split('T')[0]).toBe('2024-01-18');
+    });
+
+    it('should handle shortcuts - eod', () => {
+      const result = DateParser.parseNaturalLanguageDate('eod', referenceDate);
+      expect(result).not.toBeNull();
+      expect(result!.getHours()).toBe(17);
+    });
+
+    it('should handle shortcuts - eow', () => {
+      const result = DateParser.parseNaturalLanguageDate('eow', referenceDate);
+      expect(result).not.toBeNull();
+      expect(result!.getDay()).toBe(5); // Friday
+      expect(result!.getHours()).toBe(17);
+    });
+
+    it('should handle shortcuts - eom', () => {
+      const result = DateParser.parseNaturalLanguageDate('eom', referenceDate);
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(31); // January has 31 days
+      expect(result!.getHours()).toBe(17);
+    });
+
+    it('should return null for invalid input', () => {
+      const result = DateParser.parseNaturalLanguageDate('xyz invalid', referenceDate);
+      expect(result).toBeNull();
+    });
+
+    it('should return null for empty string', () => {
+      const result = DateParser.parseNaturalLanguageDate('', referenceDate);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('parseToISO', () => {
+    it('should convert natural language to ISO string', () => {
+      const result = DateParser.parseToISO('tomorrow', referenceDate);
+      expect(result).not.toBeNull();
+      expect(result).toContain('2024-01-16');
+    });
+
+    it('should return null for invalid input', () => {
+      const result = DateParser.parseToISO('invalid date', referenceDate);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('isDateExpression', () => {
+    it('should recognize date keywords', () => {
+      expect(DateParser.isDateExpression('tomorrow')).toBe(true);
+      expect(DateParser.isDateExpression('next Friday')).toBe(true);
+      expect(DateParser.isDateExpression('in 3 days')).toBe(true);
+      expect(DateParser.isDateExpression('Monday')).toBe(true);
+      expect(DateParser.isDateExpression('eod')).toBe(true);
+      expect(DateParser.isDateExpression('eow')).toBe(true);
+      expect(DateParser.isDateExpression('eom')).toBe(true);
+    });
+
+    it('should reject non-date strings', () => {
+      expect(DateParser.isDateExpression('hello world')).toBe(false);
+      expect(DateParser.isDateExpression('random text')).toBe(false);
+      expect(DateParser.isDateExpression('')).toBe(false);
+    });
+
+    it('should recognize parseable dates', () => {
+      expect(DateParser.isDateExpression('Jan 15, 2024')).toBe(true);
+      expect(DateParser.isDateExpression('2024-01-15')).toBe(true);
+    });
+  });
+
+  describe('getDateSuggestions', () => {
+    it('should return suggestions for empty input', () => {
+      const suggestions = DateParser.getDateSuggestions('', referenceDate);
+      expect(suggestions.length).toBeGreaterThan(0);
+      expect(suggestions.length).toBeLessThanOrEqual(8);
+    });
+
+    it('should filter suggestions based on input', () => {
+      const suggestions = DateParser.getDateSuggestions('tom', referenceDate);
+      expect(suggestions.some(s => s.text.toLowerCase().includes('tomorrow'))).toBe(true);
+    });
+
+    it('should include relative dates', () => {
+      const suggestions = DateParser.getDateSuggestions('', referenceDate);
+      const hasRelative = suggestions.some(s => s.category === 'relative');
+      expect(hasRelative).toBe(true);
+    });
+
+    it('should include named days', () => {
+      const suggestions = DateParser.getDateSuggestions('monday', referenceDate);
+      const hasNamed = suggestions.some(s => s.category === 'named' && s.text.toLowerCase().includes('monday'));
+      expect(hasNamed).toBe(true);
+    });
+
+    it('should include shortcuts', () => {
+      const suggestions = DateParser.getDateSuggestions('eo', referenceDate);
+      const hasShortcut = suggestions.some(s => s.category === 'shortcut');
+      expect(hasShortcut).toBe(true);
+    });
+
+    it('should format descriptions correctly', () => {
+      const suggestions = DateParser.getDateSuggestions('', referenceDate);
+      expect(suggestions[0].description).toBeTruthy();
+      expect(suggestions[0].value).toBeTruthy();
+    });
+
+    it('should limit to 8 suggestions', () => {
+      const suggestions = DateParser.getDateSuggestions('', referenceDate);
+      expect(suggestions.length).toBeLessThanOrEqual(8);
+    });
+  });
+
+  describe('formatDateForDisplay', () => {
+    it('should format without time', () => {
+      const date = new Date('2024-01-15T14:30:00Z');
+      const formatted = DateParser.formatDateForDisplay(date, false);
+      expect(formatted).toContain('Jan');
+      expect(formatted).toContain('15');
+      expect(formatted).toContain('2024');
+      expect(formatted).not.toContain('14:30');
+    });
+
+    it('should format with time', () => {
+      const date = new Date('2024-01-15T14:30:00Z');
+      const formatted = DateParser.formatDateForDisplay(date, true);
+      expect(formatted).toContain('Jan');
+      expect(formatted).toContain('15');
+      expect(formatted).toContain('2024');
+    });
+  });
+
+  describe('parseTime', () => {
+    it('should parse 24-hour format', () => {
+      expect(DateParser.parseTime('14:00')).toEqual({ hours: 14, minutes: 0 });
+      expect(DateParser.parseTime('09:30')).toEqual({ hours: 9, minutes: 30 });
+      expect(DateParser.parseTime('23:59')).toEqual({ hours: 23, minutes: 59 });
+    });
+
+    it('should parse 12-hour format with am', () => {
+      expect(DateParser.parseTime('9am')).toEqual({ hours: 9, minutes: 0 });
+      expect(DateParser.parseTime('12am')).toEqual({ hours: 0, minutes: 0 });
+      expect(DateParser.parseTime('11:30am')).toEqual({ hours: 11, minutes: 30 });
+      expect(DateParser.parseTime('9:45 am')).toEqual({ hours: 9, minutes: 45 });
+    });
+
+    it('should parse 12-hour format with pm', () => {
+      expect(DateParser.parseTime('2pm')).toEqual({ hours: 14, minutes: 0 });
+      expect(DateParser.parseTime('12pm')).toEqual({ hours: 12, minutes: 0 });
+      expect(DateParser.parseTime('3:30pm')).toEqual({ hours: 15, minutes: 30 });
+      expect(DateParser.parseTime('11:45 pm')).toEqual({ hours: 23, minutes: 45 });
+    });
+
+    it('should return null for invalid time', () => {
+      expect(DateParser.parseTime('invalid')).toBeNull();
+      expect(DateParser.parseTime('25:00')).toBeNull();
+      expect(DateParser.parseTime('12:60')).toBeNull();
+      expect(DateParser.parseTime('')).toBeNull();
+    });
+  });
 });
