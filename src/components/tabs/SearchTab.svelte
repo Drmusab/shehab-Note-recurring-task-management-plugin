@@ -25,15 +25,18 @@
   // Example queries
   const exampleQueries = [
     "not done",
-    "due today",
-    "priority high",
+    "priority is high",
+    "due before tomorrow",
+    "not done AND priority above medium",
+    "is blocked",
     "description includes meeting",
-    "not done AND due before tomorrow",
     "tag includes #work",
     "is recurring",
-    "is blocked",
+    "priority is high OR priority is medium",
+    "NOT is blocked",
+    "not done AND priority is high AND description includes priority",
     "sort by priority",
-    "not done GROUP BY priority",
+    "group by priority",
   ];
 
   // Task index for QueryEngine
