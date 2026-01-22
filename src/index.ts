@@ -1,3 +1,5 @@
+import { GlobalFilter } from '@/core/filtering/GlobalFilter';
+import type { GlobalFilterProfile } from '@/core/filtering/FilterRule';
 import { Plugin } from "siyuan";
 import { mount, unmount } from "svelte";
 import Dashboard from "./components/Dashboard.svelte";
