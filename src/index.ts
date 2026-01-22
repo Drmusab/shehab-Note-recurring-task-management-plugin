@@ -95,6 +95,301 @@ export default class RecurringTasksPlugin extends Plugin {
       () => settingsService.get()
     );
 
+    // ========== Global Filter Profile Commands ==========
+    
+    /**
+     * Command: Switch Global Filter Profile
+     * Allows quick switching between filter profiles
+     */
+    this.addCommand({
+      langString: 'switchGlobalFilterProfile',
+      hotkey: '⌘⇧F', // Ctrl+Shift+F (configurable)
+      callback: async () => {
+        const globalFilter = GlobalFilter.getInstance();
+        const config = globalFilter.getConfig();
+        
+        if (!config.enabled) {
+          showMessage(
+            this.i18n.globalFilterDisabled || 'Global Filter is disabled. Enable it in settings first.',
+            3000,
+            'info'
+          );
+          return;
+        }
+        
+        if (config.profiles.length === 0) {
+          showMessage(
+            this.i18n.noProfiles || 'No profiles found. Create one in settings.',
+            3000,
+            'info'
+          );
+          return;
+        }
+        
+        // Create menu for profile selection
+        const menu = new Menu();
+        
+        config.profiles.forEach(profile => {
+          menu.addItem({
+            label: profile.name,
+            icon: profile.id === config.activeProfileId ? 'iconCheck' : '',
+            click: async () => {
+              await this.switchToProfile(profile.id);
+            },
+          });
+        });
+        
+        // Add separator and management options
+        menu.addSeparator();
+        
+        menu.addItem({
+          label: this.i18n.manageProfiles || 'Manage Profiles...',
+          icon: 'iconSettings',
+          click: () => {
+            // Open settings to Global Filter section
+            this.openSettings('global-filter');
+          },
+        });
+        
+        // Show menu at cursor or center of screen
+        const rect = document.activeElement?.getBoundingClientRect();
+        const x = rect ? rect.left : window.innerWidth / 2;
+        const y = rect ? rect.bottom + 5 : 100;
+        
+        menu.showAtPosition({ x, y });
+      },
+    });
+    
+    /**
+     * Command: Toggle Global Filter On/Off
+     * Quick enable/disable without opening settings
+     */
+    this.addCommand({
+      langString: 'toggleGlobalFilter',
+      hotkey: '',
+      callback: async () => {
+        const globalFilter = GlobalFilter.getInstance();
+        const config = globalFilter.getConfig();
+        
+        const newEnabled = !config.enabled;
+        
+        await this.settingsService.update({
+          globalFilter: {
+            ...config,
+            enabled: newEnabled,
+          },
+        });
+        
+        globalFilter.updateConfig({
+          ...config,
+          enabled: newEnabled,
+        });
+        
+        showMessage(
+          newEnabled
+            ? (this.i18n.globalFilterEnabled || 'Global Filter enabled')
+            : (this.i18n.globalFilterDisabled || 'Global Filter disabled'),
+          2000,
+          'info'
+        );
+        
+        // Refresh tasks to apply/remove filter
+        pluginEventBus.emit('task:refresh', undefined);
+      },
+    });
+    
+    /**
+     * Command: Show Global Filter Status
+     * Display current profile and stats
+     */
+    this.addCommand({
+      langString: 'showGlobalFilterStatus',
+      hotkey: '',
+      callback: async () => {
+        const globalFilter = GlobalFilter.getInstance();
+        const config = globalFilter.getConfig();
+        const activeProfile = globalFilter.getActiveProfile();
+        
+        if (!config.enabled) {
+          showMessage(
+            this.i18n.globalFilterDisabled || 'Global Filter: Disabled',
+            3000,
+            'info'
+          );
+          return;
+        }
+        
+        if (!activeProfile) {
+          showMessage(
+            this.i18n.noActiveProfile || 'No active profile',
+            3000,
+            'error'
+          );
+          return;
+        }
+        
+        // Get task stats
+        const allTasks = await this.repository.getAllTasks();
+        const includedCount = allTasks.filter(t => globalFilter.shouldIncludeTask(t)).length;
+        const excludedCount = allTasks.length - includedCount;
+        
+        const statusMessage = `
+          <div style="padding: 10px;">
+            <h3 style="margin: 0 0 10px 0;">Global Filter Status</h3>
+            <p><strong>Active Profile:</strong> ${activeProfile.name}</p>
+            ${activeProfile.description ? `<p style="color: var(--text-muted); font-size: 0.9em;">${activeProfile.description}</p>` : ''}
+            <p><strong>Included Tasks:</strong> ${includedCount}</p>
+            <p><strong>Excluded Tasks:</strong> ${excludedCount}</p>
+            <p><strong>Total Tasks:</strong> ${allTasks.length}</p>
+          </div>
+        `;
+        
+        // Show in a dialog
+        const dialog = new Dialog({
+          title: 'Global Filter Status',
+          content: statusMessage,
+          width: '400px',
+        });
+        dialog.open();
+      },
+    });
+    
+    /**
+     * Command: Create New Global Filter Profile
+     * Quick profile creation from command palette
+     */
+    this.addCommand({
+      langString: 'createGlobalFilterProfile',
+      hotkey: '',
+      callback: async () => {
+        const profileName = await this.promptForInput(
+          this.i18n.enterProfileName || 'Enter profile name:',
+          ''
+        );
+        
+        if (!profileName || profileName.trim() === '') {
+          return;
+        }
+        
+        const globalFilter = GlobalFilter.getInstance();
+        const config = globalFilter.getConfig();
+        
+        const newProfile: GlobalFilterProfile = {
+          id: `profile_${Date.now()}`,
+          name: profileName.trim(),
+          description: '',
+          includePaths: [],
+          excludePaths: [],
+          includeTags: [],
+          excludeTags: [],
+          includeRegex: undefined,
+          excludeRegex: undefined,
+          regexTargets: ['taskText'],
+          excludeStatusTypes: [],
+        };
+        
+        const updatedConfig = {
+          ...config,
+          profiles: [...config.profiles, newProfile],
+          activeProfileId: newProfile.id,
+        };
+        
+        globalFilter.updateConfig(updatedConfig);
+        await this.settingsService.update({ globalFilter: updatedConfig });
+        
+        showMessage(
+          `Profile "${profileName}" created and activated`,
+          2000,
+          'info'
+        );
+        
+        // Optionally open settings to configure the new profile
+        const shouldConfigure = await this.confirmDialog(
+          this.i18n.configureNewProfile || 'Configure new profile now?'
+        );
+        
+        if (shouldConfigure) {
+          this.openSettings('global-filter');
+        }
+      },
+    });
+    
+    /**
+     * Command: Explain Why Task Is Excluded (Debug Mode)
+     * For the currently selected/focused task
+     */
+    this.addCommand({
+      langString: 'explainTaskExclusion',
+      hotkey: '',
+      callback: async () => {
+        const globalFilter = GlobalFilter.getInstance();
+        const config = globalFilter.getConfig();
+        
+        if (!config.enabled) {
+          showMessage(
+            this.i18n.globalFilterDisabled || 'Global Filter is disabled',
+            2000,
+            'info'
+          );
+          return;
+        }
+        
+        // Get currently focused task (you'll need to implement this based on your UI)
+        const focusedTask = await this.getFocusedTask();
+        
+        if (!focusedTask) {
+          showMessage(
+            this.i18n.noTaskSelected || 'No task selected. Click on a task first.',
+            3000,
+            'info'
+          );
+          return;
+        }
+        
+        const decision = globalFilter.explainTask(focusedTask);
+        
+        let explanationHTML = `
+          <div style="padding: 10px;">
+            <h3 style="margin: 0 0 10px 0;">Filter Explanation</h3>
+            <p><strong>Task:</strong> ${focusedTask.name}</p>
+        `;
+        
+        if (decision.included) {
+          explanationHTML += `
+            <p style="color: var(--text-success); font-weight: 600;">✓ Task is INCLUDED</p>
+            <p>${decision.reason}</p>
+          `;
+        } else {
+          explanationHTML += `
+            <p style="color: var(--text-error); font-weight: 600;">✗ Task is EXCLUDED</p>
+            <p><strong>Reason:</strong> ${decision.reason}</p>
+          `;
+          
+          if (decision.matchedRule) {
+            explanationHTML += `
+              <p><strong>Matched Rule:</strong></p>
+              <ul style="margin-left: 20px;">
+                <li><strong>Type:</strong> ${decision.matchedRule.type}</li>
+                <li><strong>Pattern:</strong> <code>${decision.matchedRule.pattern}</code></li>
+                ${decision.matchedRule.target ? `<li><strong>Target:</strong> ${decision.matchedRule.target}</li>` : ''}
+              </ul>
+            `;
+          }
+        }
+        
+        explanationHTML += `</div>`;
+        
+        const dialog = new Dialog({
+          title: 'Task Filter Explanation',
+          content: explanationHTML,
+          width: '500px',
+        });
+        dialog.open();
+      },
+    });
+    
+    // ========== End Global Filter Commands ==========
+
     // Register block context menu
     registerBlockMenu(this);
 
@@ -482,4 +777,177 @@ export default class RecurringTasksPlugin extends Plugin {
       this.taskEditorContainer = null;
     }
   }
+
+  // ========== Helper Methods for Global Filter Commands ==========
+
+  /**
+   * Switch to a specific profile and refresh tasks
+   */
+  private async switchToProfile(profileId: string): Promise<void> {
+    const globalFilter = GlobalFilter.getInstance();
+    const config = globalFilter.getConfig();
+    
+    const profile = config.profiles.find(p => p.id === profileId);
+    if (!profile) {
+      showMessage(
+        this.i18n.profileNotFound || 'Profile not found',
+        2000,
+        'error'
+      );
+      return;
+    }
+    
+    // Update active profile
+    globalFilter.setActiveProfile(profileId);
+    
+    // Save to settings
+    await this.settingsService.update({
+      globalFilter: {
+        ...config,
+        activeProfileId: profileId,
+      },
+    });
+    
+    // Show confirmation
+    showMessage(
+      `Switched to profile: ${profile.name}`,
+      2000,
+      'info'
+    );
+    
+    // Refresh tasks to apply new filter
+    pluginEventBus.emit('task:refresh', undefined);
+  }
+
+  /**
+   * Open settings to a specific section
+   */
+  private openSettings(section?: string): void {
+    // Implementation depends on your settings dialog structure
+    // This is a placeholder - adjust to match your actual settings UI
+    const settingsDialog = new SettingsDialog(this, this.settingsService);
+    if (section) {
+      settingsDialog.openToSection(section);
+    }
+    settingsDialog.open();
+  }
+
+  /**
+   * Prompt user for text input
+   */
+  private async promptForInput(message: string, defaultValue: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      const dialog = new Dialog({
+        title: message,
+        content: `
+          <div style="padding: 10px;">
+            <input 
+              type="text" 
+              id="input-value" 
+              value="${defaultValue}" 
+              style="width: 100%; padding: 8px; border: 1px solid var(--background-modifier-border); border-radius: 4px;"
+            />
+          </div>
+        `,
+        width: '400px',
+      });
+      
+      dialog.element.querySelector('#input-value')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const value = (dialog.element.querySelector('#input-value') as HTMLInputElement)?.value;
+          dialog.destroy();
+          resolve(value || null);
+        }
+      });
+      
+      // Add OK/Cancel buttons
+      const footer = dialog.element.querySelector('.b3-dialog__footer');
+      if (footer) {
+        const okButton = document.createElement('button');
+        okButton.textContent = 'OK';
+        okButton.className = 'b3-button b3-button--primary';
+        okButton.onclick = () => {
+          const value = (dialog.element.querySelector('#input-value') as HTMLInputElement)?.value;
+          dialog.destroy();
+          resolve(value || null);
+        };
+        
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Cancel';
+        cancelButton.className = 'b3-button';
+        cancelButton.onclick = () => {
+          dialog.destroy();
+          resolve(null);
+        };
+        
+        footer.appendChild(cancelButton);
+        footer.appendChild(okButton);
+      }
+      
+      dialog.open();
+    });
+  }
+
+  /**
+   * Show confirmation dialog
+   */
+  private async confirmDialog(message: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const dialog = new Dialog({
+        title: 'Confirm',
+        content: `<div style="padding: 10px;">${message}</div>`,
+        width: '350px',
+      });
+      
+      const footer = dialog.element.querySelector('.b3-dialog__footer');
+      if (footer) {
+        const yesButton = document.createElement('button');
+        yesButton.textContent = 'Yes';
+        yesButton.className = 'b3-button b3-button--primary';
+        yesButton.onclick = () => {
+          dialog.destroy();
+          resolve(true);
+        };
+        
+        const noButton = document.createElement('button');
+        noButton.textContent = 'No';
+        noButton.className = 'b3-button';
+        noButton.onclick = () => {
+          dialog.destroy();
+          resolve(false);
+        };
+        
+        footer.appendChild(noButton);
+        footer.appendChild(yesButton);
+      }
+      
+      dialog.open();
+    });
+  }
+
+  /**
+   * Get currently focused/selected task
+   * Implement based on your UI structure
+   */
+  private async getFocusedTask(): Promise<Task | null> {
+    // This is a placeholder implementation
+    // You'll need to adapt this to your actual UI structure
+    
+    // Example: Get task from active element data attribute
+    const activeElement = document.activeElement;
+    const taskId = activeElement?.getAttribute('data-task-id');
+    
+    if (taskId) {
+      return this.repository.getTask(taskId) || null;
+    }
+    
+    // Example: Get from currently open task editor
+    if (this.taskEditorComponent) {
+      // You'll need to expose the current task from your TaskEditorModal component
+      // This depends on your Svelte component implementation
+    }
+    
+    return null;
+  }
+  // ========== End Helper Methods ==========
 }
