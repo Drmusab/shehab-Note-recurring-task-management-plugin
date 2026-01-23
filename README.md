@@ -1,8 +1,30 @@
 # Shehab-Note Recurring Task Manager
 
-A powerful recurring task management plugin for Shehab-Note (SiYuan fork) with advanced scheduling, multi-channel notifications, and visual timeline planning.
+A powerful recurring task management plugin for Shehab-Note (SiYuan fork) with advanced scheduling, multi-channel notifications, visual timeline planning, and **inline task creation**.
 
 ## Features
+
+### ✨ Inline Task Creation (NEW)
+
+Create tasks directly in your notes using natural markdown syntax with emoji-based metadata:
+
+```markdown
+- [ ] Buy groceries 📅 tomorrow #personal
+- [ ] Weekly report 📅 next friday 🔁 every week 🔼 #work
+- [ ] Deploy app 🆔 deploy-v2 ⛔ tests-pass 🔺 #release
+```
+
+**Supported metadata:**
+- 📅 **Due dates:** ISO dates or natural language (today, tomorrow, next week, etc.)
+- ⏳ **Scheduled dates:** When to start working
+- 🛫 **Start dates:** Earliest start date
+- 🔁 **Recurrence:** `every day/week/month/year`, `when done`, custom patterns
+- 🔺🔼🔽 **Priority:** High, Medium, Low
+- 🆔 **Task IDs:** Unique identifiers
+- ⛔ **Dependencies:** Link tasks together
+- #️⃣ **Tags:** Categorize and filter
+
+[📖 Complete Inline Task Syntax Guide](./docs/InlineTaskSyntax.md)
 
 ### 🔁 Advanced Recurrence Rules
 - **Daily, Weekly, Monthly scheduling** with customizable intervals

@@ -9,7 +9,11 @@ export default mergeConfig(
       globals: true,
       environment: 'node',
       setupFiles: [],
-      include: ['src/__tests__/**/*.test.ts'],
+      include: [
+        'src/__tests__/**/*.test.ts',
+        'src/parser/**/*.test.ts',
+        'src/utils/**/*.test.ts'
+      ],
     },
     resolve: {
       alias: {
