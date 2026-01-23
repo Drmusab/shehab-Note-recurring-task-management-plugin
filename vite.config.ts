@@ -8,8 +8,28 @@ const isWatch = process.argv.includes("--watch");
 const mode = process.env.NODE_ENV || "production";
 const isTest = !!process.env.VITEST;
 
+// Custom plugin to handle SVG imports as URLs
+function svgUrlPlugin() {
+  return {
+    name: 'svg-url',
+    transform(code: string, id: string) {
+      if (id.endsWith('.svg')) {
+        // Return the SVG content as a data URL
+        const svgContent = code;
+        const base64 = Buffer.from(svgContent).toString('base64');
+        const dataUrl = `data:image/svg+xml;base64,${base64}`;
+        return {
+          code: `export default ${JSON.stringify(dataUrl)}`,
+          map: null
+        };
+      }
+    }
+  };
+}
+
 export default defineConfig({
   plugins: [
+    svgUrlPlugin(),
     svelte(),
     viteStaticCopy({
       targets: [
@@ -18,6 +38,7 @@ export default defineConfig({
         { src: "icon.png", dest: "./" },
         { src: "preview.png", dest: "./" },
         { src: "assets", dest: "./" },
+        { src: "src/assets/icons", dest: "./assets" },
       ],
     }),
     ...(!isWatch
