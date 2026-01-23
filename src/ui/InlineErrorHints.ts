@@ -6,6 +6,9 @@ import type { ParseError } from "@/parser/InlineTaskParser";
 import { toast } from "@/utils/notifications";
 import * as logger from "@/utils/logger";
 
+// Track error timeouts for cleanup
+const errorTimeouts = new Map<string, number>();
+
 /**
  * Show parse error to user with actionable feedback
  */
@@ -37,10 +40,23 @@ function addErrorClassToBlock(blockId: string): void {
     if (blockElement) {
       blockElement.classList.add('task-parse-error');
       
+      // Clear any existing timeout for this block
+      const existingTimeout = errorTimeouts.get(blockId);
+      if (existingTimeout !== undefined) {
+        clearTimeout(existingTimeout);
+      }
+      
       // Remove error class after 5 seconds
-      setTimeout(() => {
-        blockElement.classList.remove('task-parse-error');
-      }, 5000);
+      const timeoutId = setTimeout(() => {
+        // Check if element still exists before removing class
+        const element = document.querySelector(`[data-node-id="${blockId}"]`);
+        if (element) {
+          element.classList.remove('task-parse-error');
+        }
+        errorTimeouts.delete(blockId);
+      }, 5000) as unknown as number;
+      
+      errorTimeouts.set(blockId, timeoutId);
     }
   } catch (error) {
     logger.warn("Failed to add error class to block", { error, blockId });

@@ -564,6 +564,9 @@ export default class RecurringTasksPlugin extends Plugin {
   private autoCreationKeydownHandler: ((event: KeyboardEvent) => void) | null = null;
   private autoCreationBlurHandler: ((event: FocusEvent) => void) | null = null;
 
+  // Shared regex pattern for checklist detection
+  private static readonly CHECKLIST_PATTERN = /^-\s*\[\s*[x\s\-]\s*\]/i;
+
   /**
    * Setup event handlers for auto-creation (Phase 3)
    */
@@ -582,7 +585,7 @@ export default class RecurringTasksPlugin extends Plugin {
       const blockId = blockElement.getAttribute("data-node-id");
       const content = blockElement.textContent || "";
       
-      if (!blockId || !content.trim().match(/^-\s*\[\s*[x\s\-]\s*\]/i)) {
+      if (!blockId || !RecurringTasksPlugin.CHECKLIST_PATTERN.test(content.trim())) {
         return;
       }
       
@@ -600,7 +603,7 @@ export default class RecurringTasksPlugin extends Plugin {
       const blockId = blockElement.getAttribute("data-node-id");
       const content = blockElement.textContent || "";
       
-      if (!blockId || !content.trim().match(/^-\s*\[\s*[x\s\-]\s*\]/i)) {
+      if (!blockId || !RecurringTasksPlugin.CHECKLIST_PATTERN.test(content.trim())) {
         return;
       }
       
