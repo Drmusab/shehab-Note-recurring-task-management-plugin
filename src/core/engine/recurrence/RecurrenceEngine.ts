@@ -25,6 +25,7 @@ import type {
 import { RRuleCache } from './RRuleCache';
 import { RecurrenceValidator } from './RecurrenceValidator';
 import { RecurrenceExplainer } from './RecurrenceExplainer';
+import { generateCacheKey } from './utils';
 import { getUserTimezone } from '@/utils/timezone';
 import * as logger from '@/utils/logger';
 
@@ -354,7 +355,8 @@ export class RecurrenceEngine implements IRecurrenceEngine {
    * @returns Parsed RRule object
    */
   private getRRule(task: Task): RRule {
-    const cacheKey = `${task.id}:${task.frequency?.rruleString}`;
+    // Generate robust cache key
+    const cacheKey = generateCacheKey(task.id, task.frequency!.rruleString!);
     
     // Get dtstart - prefer frequency.dtstart, fallback to task.dueAt
     const dtstart = task.frequency?.dtstart 

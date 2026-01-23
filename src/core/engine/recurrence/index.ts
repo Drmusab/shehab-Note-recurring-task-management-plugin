@@ -16,6 +16,9 @@ export { RRuleCache } from './RRuleCache';
 export { RecurrenceValidator } from './RecurrenceValidator';
 export { RecurrenceExplainer } from './RecurrenceExplainer';
 
+// Utilities
+export { extractRRuleOptions, generateCacheKey } from './utils';
+
 // Types and interfaces
 export type {
   IRecurrenceEngine,

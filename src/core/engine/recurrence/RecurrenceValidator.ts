@@ -10,6 +10,7 @@
 
 import { RRule, rrulestr, RRuleSet } from 'rrule';
 import type { ValidationResult } from './types';
+import { extractRRuleOptions } from './utils';
 import * as logger from '@/utils/logger';
 
 /**
@@ -39,30 +40,8 @@ export class RecurrenceValidator {
     }
 
     try {
-      // Normalize RRULE string
-      const normalized = rruleString.startsWith('RRULE:') 
-        ? rruleString 
-        : `RRULE:${rruleString}`;
-
-      // Parse the RRULE
-      const parsed = rrulestr(normalized);
-      
-      // Extract options
-      let options;
-      if (parsed instanceof RRule) {
-        options = { ...parsed.origOptions };
-      } else if (parsed instanceof RRuleSet) {
-        const rrules = parsed.rrules();
-        if (rrules && rrules.length > 0) {
-          options = { ...rrules[0].origOptions };
-        } else {
-          errors.push('RRuleSet has no rrules');
-          return { valid: false, errors, warnings };
-        }
-      } else {
-        errors.push('Unexpected parsed rule type');
-        return { valid: false, errors, warnings };
-      }
+      // Parse and extract options
+      const options = extractRRuleOptions(rruleString);
 
       // Set dtstart for validation
       options.dtstart = dtstart;

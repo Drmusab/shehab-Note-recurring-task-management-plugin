@@ -98,7 +98,7 @@ export interface MissedOccurrenceOptions {
  */
 export interface CacheEntry {
   /** Cached RRule instance */
-  rrule: any; // RRule from 'rrule' package
+  rrule: import('rrule').RRule;
   /** Cache key */
   key: string;
   /** Number of cache hits */

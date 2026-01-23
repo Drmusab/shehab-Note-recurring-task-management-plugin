@@ -35,7 +35,7 @@ describe('RecurrenceEngine', () => {
         frequency: {
           type: 'weekly',
           interval: 1,
-          weekdays: [0], // Monday
+          weekdays: [0], // 0 = Monday in RRULE (not JavaScript's Date.getDay())
           rruleString: 'RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO',
           dtstart: '2026-01-05T09:00:00Z',
         },
@@ -250,7 +250,7 @@ describe('RecurrenceEngine', () => {
         frequency: {
           type: 'weekly',
           interval: 1,
-          weekdays: [0, 2], // Monday and Wednesday
+          weekdays: [0, 2], // Monday and Wednesday in RRULE convention
           rruleString: 'RRULE:FREQ=WEEKLY;BYDAY=MO,WE',
           dtstart: '2026-01-05T09:00:00Z', // Monday
         },
@@ -537,7 +537,7 @@ describe('RecurrenceEngine', () => {
         frequency: {
           type: 'weekly',
           interval: 1,
-          weekdays: [0], // Monday only
+          weekdays: [0], // Monday in RRULE convention
           rruleString: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
           dtstart: '2026-01-05T09:00:00Z',
         },
@@ -599,7 +599,7 @@ describe('RecurrenceEngine', () => {
         frequency: {
           type: 'weekly',
           interval: 1,
-          weekdays: [0, 1, 2, 3, 4], // Mon-Fri
+          weekdays: [0, 1, 2, 3, 4], // Mon-Fri in RRULE convention (Monday=0)
           rruleString: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',
           dtstart: '2026-01-05T09:00:00Z', // Monday
         },

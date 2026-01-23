@@ -10,6 +10,7 @@
 
 import { RRule, rrulestr, RRuleSet } from 'rrule';
 import type { CacheEntry, CacheStats } from './types';
+import { extractRRuleOptions } from './utils';
 import * as logger from '@/utils/logger';
 
 /**
@@ -78,28 +79,8 @@ export class RRuleCache {
    */
   private parseRRule(rruleString: string, dtstart: Date, timezone?: string): RRule {
     try {
-      // Normalize RRULE string
-      const normalized = rruleString.startsWith('RRULE:') 
-        ? rruleString 
-        : `RRULE:${rruleString}`;
-      
-      // Parse the RRULE
-      const parsed = rrulestr(normalized);
-      
-      // Extract options
-      let options;
-      if (parsed instanceof RRule) {
-        options = { ...parsed.origOptions };
-      } else if (parsed instanceof RRuleSet) {
-        const rrules = parsed.rrules();
-        if (rrules && rrules.length > 0) {
-          options = { ...rrules[0].origOptions };
-        } else {
-          throw new Error('RRuleSet has no rrules');
-        }
-      } else {
-        throw new Error('Unexpected parsed rule type');
-      }
+      // Extract options using shared utility
+      const options = extractRRuleOptions(rruleString);
       
       // Set dtstart
       options.dtstart = dtstart;
