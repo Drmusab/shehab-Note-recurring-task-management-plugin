@@ -614,11 +614,24 @@ export class QueryParser {
   private parsePrimaryExpression(line: string): FilterNode {
     const trimmed = line.trim();
     
-    // Check for parentheses
+    // Check for parentheses - verify they're balanced and wrap the entire expression
     if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
-      // Remove outer parentheses and parse inner expression
-      const inner = trimmed.slice(1, -1).trim();
-      return this.parseBooleanExpression(inner);
+      // Verify this is a proper wrapping, not something like "(a) OR (b)"
+      let depth = 0;
+      for (let i = 0; i < trimmed.length; i++) {
+        if (trimmed[i] === '(') depth++;
+        if (trimmed[i] === ')') depth--;
+        // If depth reaches 0 before the end, the outer parens don't wrap everything
+        if (depth === 0 && i < trimmed.length - 1) {
+          break;
+        }
+      }
+      
+      // If depth is 0 and we made it to the end, remove outer parentheses and parse inner expression
+      if (depth === 0) {
+        const inner = trimmed.slice(1, -1).trim();
+        return this.parseBooleanExpression(inner);
+      }
     }
     
     // Parse as atomic filter
