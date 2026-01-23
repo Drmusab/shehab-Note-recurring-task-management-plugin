@@ -27,31 +27,10 @@ export interface AutoTaskCreatorDeps {
 }
 
 /**
- * Debounce utility
- */
-function debounce<T extends (...args: any[]) => any>(
-  fn: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeoutId: number | undefined;
-  
-  return (...args: Parameters<T>) => {
-    if (timeoutId !== undefined) {
-      clearTimeout(timeoutId);
-    }
-    timeoutId = setTimeout(() => {
-      fn(...args);
-      timeoutId = undefined;
-    }, delay) as unknown as number;
-  };
-}
-
-/**
  * Auto Task Creator class
  */
 export class AutoTaskCreator {
   private deps: AutoTaskCreatorDeps;
-  private pendingOperations = new Map<string, number>();
   private debouncedCreateTimeout: number | undefined;
   
   constructor(deps: AutoTaskCreatorDeps) {
@@ -208,17 +187,6 @@ export class AutoTaskCreator {
   }
   
   /**
-   * Cancel any pending operations for a block
-   */
-  cancelPending(blockId: string): void {
-    const timeoutId = this.pendingOperations.get(blockId);
-    if (timeoutId !== undefined) {
-      clearTimeout(timeoutId);
-      this.pendingOperations.delete(blockId);
-    }
-  }
-  
-  /**
    * Cleanup all pending operations
    */
   cleanup(): void {
@@ -227,9 +195,5 @@ export class AutoTaskCreator {
       clearTimeout(this.debouncedCreateTimeout);
       this.debouncedCreateTimeout = undefined;
     }
-    
-    // Clear any other pending operations
-    this.pendingOperations.forEach((timeoutId) => clearTimeout(timeoutId));
-    this.pendingOperations.clear();
   }
 }

@@ -47,7 +47,7 @@ export default class RecurringTasksPlugin extends Plugin {
   private pendingCompletionTimeouts: Map<string, number> = new Map();
   private shortcutManager: ShortcutManager | null = null;
   private inlineQueryController: InlineQueryController | null = null;
-  private autoTaskCreator: any = null; // AutoTaskCreator instance
+  private autoTaskCreator: AutoTaskCreator | null = null;
 
   async onload() {
     logger.info("Loading Recurring Tasks Plugin");
