@@ -33,8 +33,10 @@ import { BlockEventWatcher } from "@/core/block-actions/BlockEventWatcher";
 import type { PatternLearner } from "@/core/ml/PatternLearner";
 
 // Webhook and related imports
-import { WebhookServer } from './webhook/WebhookServer';
-import { DEFAULT_WEBHOOK_CONFIG } from './config/WebhookConfig';
+// Note: Webhook system requires Node.js server environment and cannot run in browser
+// Commented out to allow plugin to build for browser environment
+// import { WebhookServer } from './webhook/WebhookServer';
+// import { DEFAULT_WEBHOOK_CONFIG } from './config/WebhookConfig';
 import { ApiKeyManager } from './auth/ApiKeyManager';
 import { KeyStore } from './auth/KeyStore';
 import { WorkspaceManager } from './workspace/WorkspaceManager';
@@ -71,8 +73,8 @@ export default class RecurringTasksPlugin extends Plugin {
   private blockEventWatcher: BlockEventWatcher | null = null;
   private patternLearner: PatternLearner | null = null;
   
-  // Webhook related properties
-  private webhookServer: WebhookServer | null = null;
+  // Webhook related properties (disabled in browser environment)
+  // private webhookServer: WebhookServer | null = null;
   private apiKeyManager: ApiKeyManager | null = null;
   private workspaceManager: WorkspaceManager | null = null;
   private errorLogger: ErrorLogger | null = null;
@@ -81,55 +83,87 @@ export default class RecurringTasksPlugin extends Plugin {
   private errorLogStore: ErrorLogStore | null = null;
 
   async onload() {
-    logger.info("Loading Recurring Tasks Plugin");
-
-    // Initialize migration manager
-    this.migrationManager = new MigrationManager(this);
-
-    // Run migrations
     try {
-      await this.migrationManager.migrate(STORAGE_ACTIVE_KEY);
-    } catch (err) {
-      logger.error("Migration failed, continuing with existing data", err);
-    }
+      logger.info("Loading Recurring Tasks Plugin");
 
-    // Initialize task manager (storage + scheduler + events)
-    const manager = TaskManager.getInstance(this);
-    if (!manager) {
-      throw new Error("TaskManager failed to initialize");
-    }
+      // Initialize migration manager
+      this.migrationManager = new MigrationManager(this);
 
-    this.taskManager = manager;
-    await this.taskManager.initialize();
+      // Run migrations
+      try {
+        await this.migrationManager.migrate(STORAGE_ACTIVE_KEY);
+      } catch (err) {
+        logger.error("Migration failed, continuing with existing data", err);
+        // Migration errors are non-fatal - continue with existing data
+      }
 
-    this.repository = this.taskManager.getRepository();
-    this.scheduler = this.taskManager.getScheduler();
-    this.eventService = this.taskManager.getEventService();
-    const settingsService = this.taskManager.getSettingsService();
-    this.settingsService = settingsService;
-    this.patternLearner = this.taskManager.getPatternLearner();
+      // Initialize task manager (storage + scheduler + events)
+      let manager;
+      try {
+        manager = TaskManager.getInstance(this);
+        if (!manager) {
+          throw new Error("TaskManager failed to initialize: getInstance returned null");
+        }
+        this.taskManager = manager;
+      } catch (err) {
+        logger.error("Failed to get TaskManager instance", err);
+        showToast({ message: "Failed to initialize task management system", type: "error" });
+        throw err; // Fatal error - cannot continue without TaskManager
+      }
 
-    this.blockActionEngine = new BlockActionEngine({
-      repository: this.repository,
-      settingsProvider: () => this.settingsService.get(),
-      recurrenceEngine: this.scheduler.getRecurrenceEngine(),
-    });
-    this.blockEventWatcher = new BlockEventWatcher({
-      engine: this.blockActionEngine,
-      repository: this.repository,
-      settingsProvider: () => this.settingsService.get().blockActions,
-    });
-    this.blockEventWatcher.start();
+      // Initialize TaskManager core services
+      try {
+        await this.taskManager.initialize();
+      } catch (err) {
+        logger.error("Failed to initialize TaskManager", err);
+        showToast({ message: "Failed to initialize task management services", type: "error" });
+        throw err; // Fatal error - TaskManager must be initialized
+      }
 
-    // Start scheduler and recover missed tasks
-    try {
-      await this.taskManager.start();
-    } catch (err) {
-      logger.error("Failed to start TaskManager", err);
-    }
+      // Get initialized services from TaskManager
+      try {
+        this.repository = this.taskManager.getRepository();
+        this.scheduler = this.taskManager.getScheduler();
+        this.eventService = this.taskManager.getEventService();
+        const settingsService = this.taskManager.getSettingsService();
+        this.settingsService = settingsService;
+        this.patternLearner = this.taskManager.getPatternLearner();
+      } catch (err) {
+        logger.error("Failed to get TaskManager services", err);
+        showToast({ message: "Failed to access task management services", type: "error" });
+        throw err; // Fatal error - services must be accessible
+      }
+
+      // Initialize block action system
+      try {
+        this.blockActionEngine = new BlockActionEngine({
+          repository: this.repository,
+          settingsProvider: () => this.settingsService.get(),
+          recurrenceEngine: this.scheduler.getRecurrenceEngine(),
+        });
+        this.blockEventWatcher = new BlockEventWatcher({
+          engine: this.blockActionEngine,
+          repository: this.repository,
+          settingsProvider: () => this.settingsService.get().blockActions,
+        });
+        this.blockEventWatcher.start();
+      } catch (err) {
+        logger.error("Failed to initialize block action system", err);
+        // Non-fatal - block actions are optional
+      }
+
+      // Start scheduler and recover missed tasks
+      try {
+        await this.taskManager.start();
+      } catch (err) {
+        logger.error("Failed to start TaskManager scheduler", err);
+        showToast({ message: "Task scheduler may not be running properly", type: "warning" });
+        // Non-fatal - continue with initialization
+      }
 
     // ========== Initialize Webhook System ==========
-    await this.initializeWebhookSystem();
+    // Note: Webhook system is disabled in browser environment as it requires Node.js server
+    // await this.initializeWebhookSystem();
     
     // ========== End Webhook System Initialization ==========
 
@@ -496,73 +530,170 @@ export default class RecurringTasksPlugin extends Plugin {
     this.setupInlineToggleHandler();
 
     logger.info("Recurring Tasks Plugin loaded successfully");
+    } catch (err) {
+      // Fatal error during plugin initialization
+      logger.error("Failed to load Recurring Tasks Plugin", err);
+      showToast({ message: "Failed to load Recurring Tasks Plugin. Check console for details.", type: "error" });
+      throw err;
+    }
   }
 
   async onunload() {
     logger.info("Unloading Recurring Tasks Plugin");
     
-    this.pendingCompletionTimeouts.forEach((timeoutId) => {
-      globalThis.clearTimeout(timeoutId);
-    });
-    this.pendingCompletionTimeouts.clear();
+    // Clear all pending timeouts
+    try {
+      this.pendingCompletionTimeouts.forEach((timeoutId) => {
+        globalThis.clearTimeout(timeoutId);
+      });
+      this.pendingCompletionTimeouts.clear();
+    } catch (err) {
+      logger.error("Failed to clear pending timeouts", err);
+    }
 
-    if (this.taskManager) {
-      await this.taskManager.destroy();
+    // Destroy task manager
+    try {
+      if (this.taskManager) {
+        await this.taskManager.destroy();
+      }
+    } catch (err) {
+      logger.error("Failed to destroy task manager", err);
     }
 
     // Destroy topbar menu
-    if (this.topbarMenu) {
-      this.topbarMenu.destroy();
+    try {
+      if (this.topbarMenu) {
+        this.topbarMenu.destroy();
+      }
+    } catch (err) {
+      logger.error("Failed to destroy topbar menu", err);
     }
     
     // Cleanup auto task creator
-    if (this.autoTaskCreator) {
-      this.autoTaskCreator.cleanup();
+    try {
+      if (this.autoTaskCreator) {
+        this.autoTaskCreator.cleanup();
+      }
+    } catch (err) {
+      logger.error("Failed to cleanup auto task creator", err);
     }
     
     // Cleanup inline toggle handler
-    if (this.inlineToggleHandler) {
-      this.inlineToggleHandler.destroy();
+    try {
+      if (this.inlineToggleHandler) {
+        this.inlineToggleHandler.destroy();
+      }
+    } catch (err) {
+      logger.error("Failed to destroy inline toggle handler", err);
     }
     
     // Remove checkbox click listener
-    if (this.checkboxClickListener) {
-      document.removeEventListener('click', this.checkboxClickListener, true);
-      this.checkboxClickListener = null;
+    try {
+      if (this.checkboxClickListener) {
+        document.removeEventListener('click', this.checkboxClickListener, true);
+        this.checkboxClickListener = null;
+      }
+    } catch (err) {
+      logger.error("Failed to remove checkbox click listener", err);
     }
     
     // ========== Cleanup Webhook System ==========
-    await this.cleanupWebhookSystem();
+    try {
+      await this.cleanupWebhookSystem();
+    } catch (err) {
+      logger.error("Failed to cleanup webhook system", err);
+    }
     
     // Destroy dashboard
-    this.destroyDashboard();
-    this.closeQuickAdd();
-    this.closeTaskEditor();
-    this.closePostponePicker();
+    try {
+      this.destroyDashboard();
+    } catch (err) {
+      logger.error("Failed to destroy dashboard", err);
+    }
+
+    // Close overlays
+    try {
+      this.closeQuickAdd();
+    } catch (err) {
+      logger.error("Failed to close quick add", err);
+    }
+
+    try {
+      this.closeTaskEditor();
+    } catch (err) {
+      logger.error("Failed to close task editor", err);
+    }
+
+    try {
+      this.closePostponePicker();
+    } catch (err) {
+      logger.error("Failed to close postpone picker", err);
+    }
 
     // Remove event listeners
-    this.removeEventListeners();
-
-    if (this.shortcutManager) {
-      this.shortcutManager.destroy();
-      this.shortcutManager = null;
+    try {
+      this.removeEventListeners();
+    } catch (err) {
+      logger.error("Failed to remove event listeners", err);
     }
 
-    if (this.inlineQueryController) {
-      this.inlineQueryController.destroy();
-      this.inlineQueryController = null;
+    // Cleanup shortcut manager
+    try {
+      if (this.shortcutManager) {
+        this.shortcutManager.destroy();
+        this.shortcutManager = null;
+      }
+    } catch (err) {
+      logger.error("Failed to destroy shortcut manager", err);
     }
 
-    if (this.blockEventWatcher) {
-      this.blockEventWatcher.stop();
-      this.blockEventWatcher = null;
+    // Cleanup inline query controller
+    try {
+      if (this.inlineQueryController) {
+        this.inlineQueryController.destroy();
+        this.inlineQueryController = null;
+      }
+    } catch (err) {
+      logger.error("Failed to destroy inline query controller", err);
     }
+
+    // Cleanup block event watcher
+    try {
+      if (this.blockEventWatcher) {
+        this.blockEventWatcher.stop();
+        this.blockEventWatcher = null;
+      }
+    } catch (err) {
+      logger.error("Failed to stop block event watcher", err);
+    }
+
+    // Cleanup auto-creation event handlers
+    try {
+      if (this.autoCreationKeydownHandler) {
+        document.removeEventListener("keydown", this.autoCreationKeydownHandler);
+        this.autoCreationKeydownHandler = null;
+      }
+      if (this.autoCreationBlurHandler) {
+        document.removeEventListener("focusout", this.autoCreationBlurHandler, true);
+        this.autoCreationBlurHandler = null;
+      }
+    } catch (err) {
+      logger.error("Failed to remove auto-creation event handlers", err);
+    }
+
+    logger.info("Plugin unloaded successfully");
   }
 
   /**
    * Initialize webhook system
+   * DISABLED: Webhook system requires Node.js server environment and cannot run in browser
    */
   private async initializeWebhookSystem(): Promise<void> {
+    // Webhook system is disabled in browser environment
+    logger.info("Webhook system is disabled (requires Node.js server environment)");
+    return;
+    
+    /* Original webhook initialization code - commented out for browser compatibility
     try {
       logger.info("Initializing webhook system...");
       
@@ -626,12 +757,18 @@ export default class RecurringTasksPlugin extends Plugin {
       logger.error("Failed to initialize webhook system", error);
       // Don't fail the entire plugin if webhook system fails
     }
+    */
   }
 
   /**
    * Cleanup webhook system
+   * DISABLED: Webhook system is not initialized in browser environment
    */
   private async cleanupWebhookSystem(): Promise<void> {
+    // Webhook system is disabled - nothing to cleanup
+    return;
+    
+    /* Original cleanup code - commented out for browser compatibility
     try {
       if (this.webhookServer) {
         await this.webhookServer.stop();
@@ -661,12 +798,18 @@ export default class RecurringTasksPlugin extends Plugin {
     } catch (error) {
       logger.error("Failed to cleanup webhook system", error);
     }
+    */
   }
 
   /**
    * Store API key securely (implementation depends on your storage system)
+   * DISABLED: Part of webhook system which is disabled in browser environment
    */
   private storeApiKeySecurely(apiKey: string): void {
+    // Webhook system is disabled - this method is not used
+    return;
+    
+    /* Original code - commented out for browser compatibility
     // Store in plugin settings or secure storage
     // This is a placeholder - implement based on your needs
     logger.info("API Key generated. Store it securely for external access.");
@@ -680,6 +823,7 @@ export default class RecurringTasksPlugin extends Plugin {
     }).catch(err => {
       logger.error("Failed to store API key", err);
     });
+    */
   }
 
   private renderDashboard() {
@@ -729,7 +873,14 @@ export default class RecurringTasksPlugin extends Plugin {
       
       pluginEventBus.on('task:refresh', () => {
         // Dashboard will handle its own refresh
-        this.blockEventWatcher?.refreshLinkedBlocks();
+        // Only refresh linked blocks if watcher is initialized and ready
+        if (this.blockEventWatcher) {
+          try {
+            this.blockEventWatcher.refreshLinkedBlocks();
+          } catch (err) {
+            logger.error("Failed to refresh linked blocks", err);
+          }
+        }
       });
 
       // Also listen for window events for backward compatibility
@@ -874,6 +1025,12 @@ export default class RecurringTasksPlugin extends Plugin {
 
   private handleCreateTaskEvent = (event: Event) => {
     try {
+      // Validate event type before casting
+      if (!(event instanceof CustomEvent)) {
+        logger.error("handleCreateTaskEvent received non-CustomEvent", event);
+        return;
+      }
+
       const customEvent = event as CustomEvent<{
         action?: string;
         suggestedName?: string;
@@ -881,8 +1038,14 @@ export default class RecurringTasksPlugin extends Plugin {
         linkedBlockContent?: string;
         suggestedTime?: string | null;
       }>;
-      logger.info("Create task event received", customEvent.detail);
 
+      // Validate detail object exists
+      if (!customEvent.detail || typeof customEvent.detail !== 'object') {
+        logger.error("handleCreateTaskEvent received invalid event detail", customEvent);
+        return;
+      }
+
+      logger.info("Create task event received", customEvent.detail);
       this.openQuickAdd(customEvent.detail);
     } catch (err) {
       logger.error("Failed to handle create task event", err);
@@ -892,7 +1055,20 @@ export default class RecurringTasksPlugin extends Plugin {
 
   private handleSettingsEvent = (event: Event) => {
     try {
+      // Validate event type before casting
+      if (!(event instanceof CustomEvent)) {
+        logger.error("handleSettingsEvent received non-CustomEvent", event);
+        return;
+      }
+
       const customEvent = event as CustomEvent<{ action?: string }>;
+
+      // Validate detail object exists
+      if (!customEvent.detail || typeof customEvent.detail !== 'object') {
+        logger.error("handleSettingsEvent received invalid event detail", customEvent);
+        return;
+      }
+
       logger.info("Settings event received", customEvent.detail);
 
       // Open the dock

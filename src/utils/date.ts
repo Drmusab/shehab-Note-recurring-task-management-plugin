@@ -4,9 +4,33 @@
 
 /**
  * Parse time string (HH:mm) and return hours and minutes
+ * @throws {Error} If the time string is invalid
  */
 export function parseTime(timeStr: string): { hours: number; minutes: number } {
-  const [hours, minutes] = timeStr.split(":").map(Number);
+  if (!timeStr || typeof timeStr !== 'string') {
+    throw new Error('Time string is required and must be a string');
+  }
+
+  const parts = timeStr.split(":");
+  if (parts.length !== 2) {
+    throw new Error(`Invalid time format: ${timeStr}. Expected HH:mm`);
+  }
+
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+
+  if (isNaN(hours) || isNaN(minutes)) {
+    throw new Error(`Invalid time values in: ${timeStr}`);
+  }
+
+  if (hours < 0 || hours > 23) {
+    throw new Error(`Hours must be between 0 and 23, got: ${hours}`);
+  }
+
+  if (minutes < 0 || minutes > 59) {
+    throw new Error(`Minutes must be between 0 and 59, got: ${minutes}`);
+  }
+
   return { hours, minutes };
 }
 
@@ -14,6 +38,10 @@ export function parseTime(timeStr: string): { hours: number; minutes: number } {
  * Format a date to HH:mm string
  */
 export function formatTime(date: Date): string {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    throw new Error('Invalid date object provided to formatTime');
+  }
+
   const hours = date.getHours().toString().padStart(2, "0");
   const minutes = date.getMinutes().toString().padStart(2, "0");
   return `${hours}:${minutes}`;
@@ -23,6 +51,10 @@ export function formatTime(date: Date): string {
  * Format a date to a readable string
  */
 export function formatDate(date: Date): string {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    throw new Error('Invalid date object provided to formatDate');
+  }
+
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -34,6 +66,10 @@ export function formatDate(date: Date): string {
  * Format a date to a readable string with time
  */
 export function formatDateTime(date: Date): string {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    throw new Error('Invalid date object provided to formatDateTime');
+  }
+
   return date.toLocaleString(undefined, {
     year: "numeric",
     month: "short",
@@ -47,6 +83,10 @@ export function formatDateTime(date: Date): string {
  * Check if a date is today
  */
 export function isToday(date: Date): boolean {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return false; // Invalid dates are not today
+  }
+
   const today = new Date();
   return (
     date.getDate() === today.getDate() &&
@@ -59,6 +99,10 @@ export function isToday(date: Date): boolean {
  * Check if a date is in the past
  */
 export function isPast(date: Date): boolean {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return false; // Invalid dates are not in the past
+  }
+
   return date < new Date();
 }
 
@@ -73,6 +117,14 @@ export function isOverdue(date: Date): boolean {
  * Add days to a date
  */
 export function addDays(date: Date, days: number): Date {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    throw new Error('Invalid date object provided to addDays');
+  }
+
+  if (typeof days !== 'number' || isNaN(days)) {
+    throw new Error('Days must be a valid number');
+  }
+
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;

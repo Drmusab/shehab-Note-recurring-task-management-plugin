@@ -3,6 +3,9 @@
   import type { Task } from '@/core/models/Task';
   import type { Frequency } from '@/core/models/Frequency';
 
+  // Maximum length for task titles
+  const MAX_TASK_TITLE_LENGTH = 500;
+
   interface Props {
     onTaskCreated?: (task: Partial<Task>) => void;
     initialValue?: string;
@@ -36,44 +39,81 @@
       return;
     }
 
-    const result = parser.parse(naturalInput);
-    
-    if (result && result.frequency && result.confidence > 0.5) {
-      parsedResult = result;
-      parseError = null;
-      showPreview = true;
-    } else if (result && result.errors && result.errors.length > 0) {
-      parseError = result.errors[0];
-      parsedResult = null;
-      showPreview = false;
-    } else {
-      parseError = "I couldn't understand that pattern. Try: 'every weekday at 9am'";
+    try {
+      const result = parser.parse(naturalInput);
+      
+      // Validate result structure
+      if (!result || typeof result !== 'object') {
+        parseError = "Parser returned invalid result";
+        parsedResult = null;
+        showPreview = false;
+        return;
+      }
+      
+      // Check confidence threshold and validate frequency
+      if (result.frequency && 
+          typeof result.confidence === 'number' && 
+          result.confidence > 0.5) {
+        parsedResult = result;
+        parseError = null;
+        showPreview = true;
+      } else if (result.errors && Array.isArray(result.errors) && result.errors.length > 0) {
+        parseError = result.errors[0];
+        parsedResult = null;
+        showPreview = false;
+      } else {
+        parseError = "I couldn't understand that pattern. Try: 'every weekday at 9am'";
+        parsedResult = null;
+        showPreview = false;
+      }
+    } catch (err) {
+      parseError = err instanceof Error ? err.message : "Failed to parse input";
       parsedResult = null;
       showPreview = false;
     }
   }
 
   function createTask() {
-    if (!parsedResult || !parsedResult.frequency) {
+    // Validate parsedResult before creating task
+    if (!parsedResult || typeof parsedResult !== 'object') {
+      parseError = "No valid parse result available";
       return;
     }
 
-    // Extract task title from natural input if possible
-    // For now, use the natural language as the task name
+    if (!parsedResult.frequency) {
+      parseError = "No frequency pattern detected";
+      return;
+    }
+
+    // Validate task title
     const taskTitle = naturalInput.trim();
+    if (!taskTitle || taskTitle.length === 0) {
+      parseError = "Task title cannot be empty";
+      return;
+    }
 
-    const partialTask: Partial<Task> = {
-      name: taskTitle,
-      frequency: parsedResult.frequency,
-      recurrenceText: parsedResult.naturalLanguage || naturalInput
-    };
+    if (taskTitle.length > MAX_TASK_TITLE_LENGTH) {
+      parseError = `Task title too long (max ${MAX_TASK_TITLE_LENGTH} characters)`;
+      return;
+    }
 
-    onTaskCreated?.(partialTask);
-    
-    // Reset form
-    naturalInput = '';
-    parsedResult = null;
-    showPreview = false;
+    try {
+      const partialTask: Partial<Task> = {
+        name: taskTitle,
+        frequency: parsedResult.frequency,
+        recurrenceText: parsedResult.naturalLanguage || naturalInput
+      };
+
+      onTaskCreated?.(partialTask);
+      
+      // Reset form
+      naturalInput = '';
+      parsedResult = null;
+      parseError = null;
+      showPreview = false;
+    } catch (err) {
+      parseError = err instanceof Error ? err.message : "Failed to create task";
+    }
   }
 
   function useExample(example: string) {

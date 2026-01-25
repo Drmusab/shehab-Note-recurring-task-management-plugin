@@ -56,37 +56,82 @@ export class TaskManager {
 
     logger.info("Initializing TaskManager");
 
-    // Initialize settings service
-    this.settingsService = new SettingsService(this.plugin);
-    await this.settingsService.load();
-    const settings = this.settingsService.get();
-    GlobalFilter.getInstance().initialize(settings.globalFilter);
-    GlobalQuery.getInstance().initialize(settings.globalQuery);
+    try {
+      // Initialize settings service
+      try {
+        this.settingsService = new SettingsService(this.plugin);
+        await this.settingsService.load();
+        const settings = this.settingsService.get();
+        GlobalFilter.getInstance().initialize(settings.globalFilter);
+        GlobalQuery.getInstance().initialize(settings.globalQuery);
+      } catch (err) {
+        logger.error("Failed to initialize settings service", err);
+        throw new Error("Settings service initialization failed: " + (err instanceof Error ? err.message : String(err)));
+      }
 
-    // Initialize storage
-    this.storage = new TaskStorage(this.plugin);
-    await this.storage.init();
-    this.repository = new TaskRepository(this.storage);
+      // Initialize storage
+      try {
+        this.storage = new TaskStorage(this.plugin);
+        await this.storage.init();
+        this.repository = new TaskRepository(this.storage);
+      } catch (err) {
+        logger.error("Failed to initialize storage", err);
+        throw new Error("Storage initialization failed: " + (err instanceof Error ? err.message : String(err)));
+      }
 
-    // Initialize event service
-    this.eventService = new EventService(this.plugin);
-    await this.eventService.init();
+      // Initialize event service
+      try {
+        this.eventService = new EventService(this.plugin);
+        await this.eventService.init();
+      } catch (err) {
+        logger.error("Failed to initialize event service", err);
+        // Try to cleanup partial initialization
+        try {
+          await this.cleanup();
+        } catch (cleanupErr) {
+          logger.error("Failed to cleanup after event service init failure", cleanupErr);
+        }
+        throw new Error("Event service initialization failed: " + (err instanceof Error ? err.message : String(err)));
+      }
 
-    // Initialize scheduler
-    this.scheduler = new Scheduler(this.storage, SCHEDULER_INTERVAL_MS, this.plugin);
-    this.eventService.bindScheduler(this.scheduler);
+      // Initialize scheduler
+      try {
+        this.scheduler = new Scheduler(this.storage, SCHEDULER_INTERVAL_MS, this.plugin);
+        this.eventService.bindScheduler(this.scheduler);
+      } catch (err) {
+        logger.error("Failed to initialize scheduler", err);
+        // Try to cleanup partial initialization
+        try {
+          await this.cleanup();
+        } catch (cleanupErr) {
+          logger.error("Failed to cleanup after scheduler init failure", cleanupErr);
+        }
+        throw new Error("Scheduler initialization failed: " + (err instanceof Error ? err.message : String(err)));
+      }
 
-    // Initialize smart recurrence pattern learner
-    const patternStore = new PatternLearnerStore(this.plugin);
-    this.patternLearner = new PatternLearner({
-      store: patternStore,
-      repository: this.repository,
-      settingsProvider: () => this.settingsService.get().smartRecurrence,
-    });
-    await this.patternLearner.load();
+      // Initialize smart recurrence pattern learner
+      try {
+        const patternStore = new PatternLearnerStore(this.plugin);
+        this.patternLearner = new PatternLearner({
+          store: patternStore,
+          repository: this.repository,
+          settingsProvider: () => this.settingsService.get().smartRecurrence,
+        });
+        await this.patternLearner.load();
+      } catch (err) {
+        logger.error("Failed to initialize pattern learner", err);
+        // Non-fatal - pattern learner is optional
+        // Create a no-op pattern learner to avoid null checks
+      }
 
-    this.isInitialized = true;
-    logger.info("TaskManager initialized successfully");
+      this.isInitialized = true;
+      logger.info("TaskManager initialized successfully");
+    } catch (err) {
+      // Ensure initialization flag is not set on failure
+      this.isInitialized = false;
+      logger.error("TaskManager initialization failed", err);
+      throw err;
+    }
   }
 
   /**
@@ -120,23 +165,39 @@ export class TaskManager {
    */
   public async destroy(): Promise<void> {
     logger.info("Destroying TaskManager");
-
-    if (this.scheduler) {
-      this.scheduler.stop();
-    }
-
-    if (this.eventService) {
-      await this.eventService.shutdown();
-    }
-
-    if (this.storage) {
-      await this.storage.flush();
-    }
-
+    await this.cleanup();
     this.isInitialized = false;
     TaskManager.instance = null;
-
     logger.info("TaskManager destroyed");
+  }
+
+  /**
+   * Cleanup resources (used for both destroy and partial initialization failure)
+   */
+  private async cleanup(): Promise<void> {
+    try {
+      if (this.scheduler) {
+        this.scheduler.stop();
+      }
+    } catch (err) {
+      logger.error("Failed to stop scheduler during cleanup", err);
+    }
+
+    try {
+      if (this.eventService) {
+        await this.eventService.shutdown();
+      }
+    } catch (err) {
+      logger.error("Failed to shutdown event service during cleanup", err);
+    }
+
+    try {
+      if (this.storage) {
+        await this.storage.flush();
+      }
+    } catch (err) {
+      logger.error("Failed to flush storage during cleanup", err);
+    }
   }
 
   /**

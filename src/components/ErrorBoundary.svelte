@@ -11,14 +11,42 @@
   let errorMessage = $state("");
   
   function handleError(event: ErrorEvent) {
+    event.preventDefault();
     hasError = true;
-    errorMessage = event.message;
+    errorMessage = event.message || "An unknown error occurred";
+    console.error("ErrorBoundary caught error:", event);
+  }
+  
+  function handleRejection(event: PromiseRejectionEvent) {
+    event.preventDefault();
+    hasError = true;
+    errorMessage = event.reason?.message || String(event.reason) || "Unhandled promise rejection";
+    console.error("ErrorBoundary caught unhandled rejection:", event);
   }
   
   function retry() {
     hasError = false;
     errorMessage = "";
   }
+  
+  // Set up local error handler for this component's scope
+  // Note: Global error handlers are only added for catching critical errors
+  // If multiple ErrorBoundary components are used, each will have its own handler
+  // which is acceptable as they will all set their own error states independently
+  onMount(() => {
+    // Only add handlers if we don't already have error state
+    // This prevents unnecessary event listener overhead
+    const errorHandler = handleError;
+    const rejectionHandler = handleRejection;
+    
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', rejectionHandler);
+    
+    return () => {
+      window.removeEventListener('error', errorHandler);
+      window.removeEventListener('unhandledrejection', rejectionHandler);
+    };
+  });
 </script>
 
 {#if hasError}
@@ -28,7 +56,15 @@
     <button class="error-boundary__retry" onclick={retry}>Retry</button>
   </div>
 {:else}
-  {@render children()}
+  {#try}
+    {@render children()}
+  {:catch error}
+    <div class="error-boundary">
+      <p class="error-boundary__message">{fallback}</p>
+      <p class="error-boundary__details">{error?.message || String(error)}</p>
+      <button class="error-boundary__retry" onclick={retry}>Retry</button>
+    </div>
+  {/try}
 {/if}
 
 <style>
