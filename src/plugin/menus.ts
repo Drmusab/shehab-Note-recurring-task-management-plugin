@@ -58,55 +58,70 @@ export function registerBlockMenu(plugin: Plugin): void {
     // Check if block already has a recurring task
     try {
       const manager = TaskManager.getInstance();
-      if (manager && manager.isReady()) {
-        const repository = manager.getRepository();
-        const existingTask = repository.getTaskByBlockId(blockId);
+      // Add null check and initialization check
+      if (!manager) {
+        logger.debug('TaskManager not initialized');
+        return;
+      }
+
+      // Check if manager is ready before using it
+      if (typeof manager.isReady === 'function' && !manager.isReady()) {
+        logger.debug('TaskManager not ready');
+        return;
+      }
+
+      const repository = manager.getRepository();
+      if (!repository) {
+        logger.debug('Repository not available');
+        return;
+      }
+
+      const existingTask = repository.getTaskByBlockId(blockId);
+      
+      if (existingTask) {
+        // Add separator
+        detail.menu.addSeparator();
         
-        if (existingTask) {
-          // Add separator
-          detail.menu.addSeparator();
-          
-          // Add quick actions for existing task
-          detail.menu.addItem({
-            icon: 'iconCheck',
-            label: plugin.i18n?.completeTask || 'Complete Task',
-            click: () => {
-              // Use pluginEventBus for internal communication
-              pluginEventBus.emit('task:complete', { taskId: existingTask.id });
-              
-              // Also dispatch window event for backward compatibility
-              window.dispatchEvent(new CustomEvent('recurring-task-complete', {
-                detail: { taskId: existingTask.id }
-              }));
-            },
-          });
-          
-          // Add snooze submenu
-          const snoozeSubmenu: any[] = [
-            {
-              label: '15 minutes',
-              click: () => snoozeTask(existingTask.id, 15),
-            },
-            {
-              label: '1 hour',
-              click: () => snoozeTask(existingTask.id, 60),
-            },
-            {
-              label: 'Tomorrow',
-              click: () => snoozeToTomorrow(existingTask.id),
-            },
-          ];
-          
-          detail.menu.addItem({
-            icon: 'iconClock',
-            label: plugin.i18n?.snoozeTask || 'Snooze Task',
-            submenu: snoozeSubmenu,
-          });
-        }
+        // Add quick actions for existing task
+        detail.menu.addItem({
+          icon: 'iconCheck',
+          label: plugin.i18n?.completeTask || 'Complete Task',
+          click: () => {
+            // Use pluginEventBus for internal communication
+            pluginEventBus.emit('task:complete', { taskId: existingTask.id });
+            
+            // Also dispatch window event for backward compatibility
+            window.dispatchEvent(new CustomEvent('recurring-task-complete', {
+              detail: { taskId: existingTask.id }
+            }));
+          },
+        });
+        
+        // Add snooze submenu
+        const snoozeSubmenu: any[] = [
+          {
+            label: '15 minutes',
+            click: () => snoozeTask(existingTask.id, 15),
+          },
+          {
+            label: '1 hour',
+            click: () => snoozeTask(existingTask.id, 60),
+          },
+          {
+            label: 'Tomorrow',
+            click: () => snoozeToTomorrow(existingTask.id),
+          },
+        ];
+        
+        detail.menu.addItem({
+          icon: 'iconClock',
+          label: plugin.i18n?.snoozeTask || 'Snooze Task',
+          submenu: snoozeSubmenu,
+        });
       }
     } catch (err) {
       // TaskManager not available, skip quick actions
-      logger.debug('TaskManager not available for quick actions');
+      logger.debug('TaskManager not available for quick actions', err);
     }
   });
 
