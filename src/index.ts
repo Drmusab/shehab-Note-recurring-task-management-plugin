@@ -107,7 +107,7 @@ export default class RecurringTasksPlugin extends Plugin {
         this.taskManager = manager;
       } catch (err) {
         logger.error("Failed to get TaskManager instance", err);
-        showToast(this, "Failed to initialize task management system", "error");
+        showToast({ message: "Failed to initialize task management system", type: "error" });
         throw err; // Fatal error - cannot continue without TaskManager
       }
 
@@ -116,7 +116,7 @@ export default class RecurringTasksPlugin extends Plugin {
         await this.taskManager.initialize();
       } catch (err) {
         logger.error("Failed to initialize TaskManager", err);
-        showToast(this, "Failed to initialize task management services", "error");
+        showToast({ message: "Failed to initialize task management services", type: "error" });
         throw err; // Fatal error - TaskManager must be initialized
       }
 
@@ -130,7 +130,7 @@ export default class RecurringTasksPlugin extends Plugin {
         this.patternLearner = this.taskManager.getPatternLearner();
       } catch (err) {
         logger.error("Failed to get TaskManager services", err);
-        showToast(this, "Failed to access task management services", "error");
+        showToast({ message: "Failed to access task management services", type: "error" });
         throw err; // Fatal error - services must be accessible
       }
 
@@ -157,7 +157,7 @@ export default class RecurringTasksPlugin extends Plugin {
         await this.taskManager.start();
       } catch (err) {
         logger.error("Failed to start TaskManager scheduler", err);
-        showToast(this, "Task scheduler may not be running properly", "warning");
+        showToast({ message: "Task scheduler may not be running properly", type: "warning" });
         // Non-fatal - continue with initialization
       }
 
@@ -533,7 +533,7 @@ export default class RecurringTasksPlugin extends Plugin {
     } catch (err) {
       // Fatal error during plugin initialization
       logger.error("Failed to load Recurring Tasks Plugin", err);
-      showToast(this, "Failed to load Recurring Tasks Plugin. Check console for details.", "error");
+      showToast({ message: "Failed to load Recurring Tasks Plugin. Check console for details.", type: "error" });
       throw err;
     }
   }

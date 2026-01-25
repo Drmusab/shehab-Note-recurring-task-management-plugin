@@ -17,6 +17,13 @@
     console.error("ErrorBoundary caught error:", event);
   }
   
+  function handleRejection(event: PromiseRejectionEvent) {
+    event.preventDefault();
+    hasError = true;
+    errorMessage = event.reason?.message || String(event.reason) || "Unhandled promise rejection";
+    console.error("ErrorBoundary caught unhandled rejection:", event);
+  }
+  
   function retry() {
     hasError = false;
     errorMessage = "";
@@ -25,16 +32,11 @@
   // Set up global error handler for this component's scope
   onMount(() => {
     window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
-      event.preventDefault();
-      hasError = true;
-      errorMessage = event.reason?.message || String(event.reason) || "Unhandled promise rejection";
-      console.error("ErrorBoundary caught unhandled rejection:", event);
-    });
+    window.addEventListener('unhandledrejection', handleRejection);
     
     return () => {
       window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
     };
   });
 </script>
