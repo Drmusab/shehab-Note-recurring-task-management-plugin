@@ -15,8 +15,11 @@ function svgUrlPlugin() {
     transform(code: string, id: string) {
       if (id.endsWith('.svg')) {
         // Return the SVG content as a data URL
+        // Use btoa instead of Buffer to avoid Node.js dependency in browser
         const svgContent = code;
-        const base64 = Buffer.from(svgContent).toString('base64');
+        const base64 = typeof Buffer !== 'undefined' 
+          ? Buffer.from(svgContent).toString('base64')
+          : btoa(unescape(encodeURIComponent(svgContent)));
         const dataUrl = `data:image/svg+xml;base64,${base64}`;
         return {
           code: `export default ${JSON.stringify(dataUrl)}`,
@@ -79,7 +82,7 @@ export default defineConfig({
       formats: ["cjs"],
     },
     rollupOptions: {
-      external: ["siyuan"],
+      external: ["siyuan", "express", "http", "https", "net", "tls", "fs", "path", "os", "crypto"],
       output: {
         entryFileNames: "index.js",
         assetFileNames: (assetInfo) => {

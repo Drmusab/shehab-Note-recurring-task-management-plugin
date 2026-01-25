@@ -33,8 +33,10 @@ import { BlockEventWatcher } from "@/core/block-actions/BlockEventWatcher";
 import type { PatternLearner } from "@/core/ml/PatternLearner";
 
 // Webhook and related imports
-import { WebhookServer } from './webhook/WebhookServer';
-import { DEFAULT_WEBHOOK_CONFIG } from './config/WebhookConfig';
+// Note: Webhook system requires Node.js server environment and cannot run in browser
+// Commented out to allow plugin to build for browser environment
+// import { WebhookServer } from './webhook/WebhookServer';
+// import { DEFAULT_WEBHOOK_CONFIG } from './config/WebhookConfig';
 import { ApiKeyManager } from './auth/ApiKeyManager';
 import { KeyStore } from './auth/KeyStore';
 import { WorkspaceManager } from './workspace/WorkspaceManager';
@@ -71,8 +73,8 @@ export default class RecurringTasksPlugin extends Plugin {
   private blockEventWatcher: BlockEventWatcher | null = null;
   private patternLearner: PatternLearner | null = null;
   
-  // Webhook related properties
-  private webhookServer: WebhookServer | null = null;
+  // Webhook related properties (disabled in browser environment)
+  // private webhookServer: WebhookServer | null = null;
   private apiKeyManager: ApiKeyManager | null = null;
   private workspaceManager: WorkspaceManager | null = null;
   private errorLogger: ErrorLogger | null = null;
@@ -129,7 +131,8 @@ export default class RecurringTasksPlugin extends Plugin {
     }
 
     // ========== Initialize Webhook System ==========
-    await this.initializeWebhookSystem();
+    // Note: Webhook system is disabled in browser environment as it requires Node.js server
+    // await this.initializeWebhookSystem();
     
     // ========== End Webhook System Initialization ==========
 
@@ -561,8 +564,14 @@ export default class RecurringTasksPlugin extends Plugin {
 
   /**
    * Initialize webhook system
+   * DISABLED: Webhook system requires Node.js server environment and cannot run in browser
    */
   private async initializeWebhookSystem(): Promise<void> {
+    // Webhook system is disabled in browser environment
+    logger.info("Webhook system is disabled (requires Node.js server environment)");
+    return;
+    
+    /* Original webhook initialization code - commented out for browser compatibility
     try {
       logger.info("Initializing webhook system...");
       
@@ -626,12 +635,18 @@ export default class RecurringTasksPlugin extends Plugin {
       logger.error("Failed to initialize webhook system", error);
       // Don't fail the entire plugin if webhook system fails
     }
+    */
   }
 
   /**
    * Cleanup webhook system
+   * DISABLED: Webhook system is not initialized in browser environment
    */
   private async cleanupWebhookSystem(): Promise<void> {
+    // Webhook system is disabled - nothing to cleanup
+    return;
+    
+    /* Original cleanup code - commented out for browser compatibility
     try {
       if (this.webhookServer) {
         await this.webhookServer.stop();
@@ -661,12 +676,18 @@ export default class RecurringTasksPlugin extends Plugin {
     } catch (error) {
       logger.error("Failed to cleanup webhook system", error);
     }
+    */
   }
 
   /**
    * Store API key securely (implementation depends on your storage system)
+   * DISABLED: Part of webhook system which is disabled in browser environment
    */
   private storeApiKeySecurely(apiKey: string): void {
+    // Webhook system is disabled - this method is not used
+    return;
+    
+    /* Original code - commented out for browser compatibility
     // Store in plugin settings or secure storage
     // This is a placeholder - implement based on your needs
     logger.info("API Key generated. Store it securely for external access.");
@@ -680,6 +701,7 @@ export default class RecurringTasksPlugin extends Plugin {
     }).catch(err => {
       logger.error("Failed to store API key", err);
     });
+    */
   }
 
   private renderDashboard() {
