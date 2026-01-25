@@ -13,9 +13,11 @@ export class GlobalFilterEngine {
   private compiledExcludeTags: RegExp[] = [];
   private compiledExcludeFilePatterns: RegExp[] = [];
   private statusRegistry = StatusRegistry.getInstance();
+  private tagRuleCache = new Map<string, RegExp>();
+  private regexRuleCache = new Map<string, RegExp | null>();
 
   constructor(config: GlobalFilterConfig) {
-    this.config = config;
+    this.config = this.normalizeConfig(config);
     this.compileExclusions();
   }
 
@@ -39,7 +41,7 @@ export class GlobalFilterEngine {
       return true;
     }
 
-    const activeRules = this.config.rules.filter(r => r.enabled);
+    const activeRules = this.getActiveRules();
     if (activeRules.length === 0) {
       // No rules = pass all (default behavior)
       return true;
@@ -62,7 +64,9 @@ export class GlobalFilterEngine {
    * Update filter configuration
    */
   updateConfig(config: GlobalFilterConfig): void {
-    this.config = config;
+    this.config = this.normalizeConfig(config);
+    this.tagRuleCache.clear();
+    this.regexRuleCache.clear();
     this.compileExclusions();
   }
 
@@ -78,29 +82,15 @@ export class GlobalFilterEngine {
    */
   private evaluateRule(rule: FilterRule, content: string, path?: string): boolean {
     switch (rule.type) {
-      case 'tag':
+      case 'tag': {
         const tags = this.extractTags(content);
         // Support wildcards: #work/* matches #work/urgent
-        const pattern = rule.pattern.replace(/\*/g, '.*');
-        const regex = new RegExp(`^${pattern}$`);
+        const regex = this.getTagRuleRegex(rule);
         return tags.some(tag => regex.test(tag));
+      }
 
       case 'regex':
-        try {
-          // Parse regex pattern with flags if provided (e.g., /pattern/flags)
-          const regexMatch = rule.pattern.match(/^\/(.+)\/([gimsuy]*)$/);
-          let regex: RegExp;
-          if (regexMatch) {
-            // Pattern with flags: /pattern/flags
-            regex = new RegExp(regexMatch[1], regexMatch[2]);
-          } else {
-            // Plain pattern without slashes
-            regex = new RegExp(rule.pattern);
-          }
-          return regex.test(content);
-        } catch {
-          return false; // Invalid regex = no match
-        }
+        return this.testRegexRule(rule, content);
 
       case 'path':
         if (!path) return false;
@@ -135,7 +125,7 @@ export class GlobalFilterEngine {
       return true;
     }
 
-    const activeRules = this.config.rules.filter(r => r.enabled);
+    const activeRules = this.getActiveRules();
     if (activeRules.length === 0) {
       return true;
     }
@@ -204,6 +194,55 @@ export class GlobalFilterEngine {
   private extractStatusSymbol(content: string): string | null {
     const match = content.match(/^\s*-\s*\[(.)\]/);
     return match ? match[1] : null;
+  }
+
+  private normalizeConfig(config: GlobalFilterConfig): GlobalFilterConfig {
+    return {
+      ...config,
+      rules: config.rules ?? [],
+      excludeFolders: config.excludeFolders ?? [],
+      excludeNotebooks: config.excludeNotebooks ?? [],
+      excludeTags: config.excludeTags ?? [],
+      excludeFilePatterns: config.excludeFilePatterns ?? [],
+      excludeStatusTypes: config.excludeStatusTypes ?? [],
+    };
+  }
+
+  private getActiveRules(): FilterRule[] {
+    return this.config.rules.filter(rule => rule.enabled);
+  }
+
+  private getTagRuleRegex(rule: FilterRule): RegExp {
+    const cacheKey = `${rule.id}:${rule.pattern}`;
+    const cached = this.tagRuleCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+    const pattern = rule.pattern.replace(/\*/g, '.*');
+    const regex = new RegExp(`^${pattern}$`);
+    this.tagRuleCache.set(cacheKey, regex);
+    return regex;
+  }
+
+  private testRegexRule(rule: FilterRule, content: string): boolean {
+    const cacheKey = `${rule.id}:${rule.pattern}`;
+    if (this.regexRuleCache.has(cacheKey)) {
+      const cached = this.regexRuleCache.get(cacheKey);
+      return cached ? cached.test(content) : false;
+    }
+
+    try {
+      // Parse regex pattern with flags if provided (e.g., /pattern/flags)
+      const regexMatch = rule.pattern.match(/^\/(.+)\/([gimsuy]*)$/);
+      const regex = regexMatch
+        ? new RegExp(regexMatch[1], regexMatch[2])
+        : new RegExp(rule.pattern);
+      this.regexRuleCache.set(cacheKey, regex);
+      return regex.test(content);
+    } catch {
+      this.regexRuleCache.set(cacheKey, null);
+      return false; // Invalid regex = no match
+    }
   }
 
   private compileExclusions(): void {
