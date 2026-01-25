@@ -1,50 +1,46 @@
-import { BaseCommandHandler } from './BaseCommandHandler';
-import {
-  CommandResult,
-  CreateTaskData,
-  UpdateTaskData,
-  CompleteTaskData,
-  DeleteTaskData,
-  GetTaskData,
-  Task,
-} from '../types/CommandTypes';
-import { TaskValidator } from '../validation/TaskValidator';
-import { WebhookError } from '../../webhook/types/Error';
+// Add to existing TaskCommandHandler
 
-/**
- * Task manager interface (existing service)
- */
-export interface ITaskManager {
-  createTask(workspaceId: string, data: CreateTaskData): Promise<Task>;
-  updateTask(workspaceId: string, data: UpdateTaskData): Promise<Task>;
-  completeTask(workspaceId: string, data: CompleteTaskData): Promise<Task>;
-  deleteTask(workspaceId: string, taskId: string, deleteHistory: boolean): Promise<void>;
-  getTask(workspaceId: string, taskId: string, includeHistory: boolean): Promise<Task>;
-  pauseTask(workspaceId: string, taskId: string): Promise<Task>;
-  resumeTask(workspaceId: string, taskId: string): Promise<Task>;
-}
+import { OutboundWebhookEmitter } from '../../events/OutboundWebhookEmitter';
+import { TaskCreatedEvent, TaskCompletedEvent } from '../../events/types/EventTypes';
 
-/**
- * Task command handler
- */
 export class TaskCommandHandler extends BaseCommandHandler {
   constructor(
     private taskManager: ITaskManager,
-    private validator: TaskValidator
+    private validator: TaskValidator,
+    private eventEmitter?: OutboundWebhookEmitter // Optional event emitter
   ) {
     super();
   }
 
   /**
-   * Handle: v1/tasks/create
+   * Handle: v1/tasks/create (with events)
    */
   async handleCreate(data: CreateTaskData, context: any): Promise<CommandResult> {
     try {
-      // Validate input
       this.validator.validateCreateTask(data);
 
-      // Create task via TaskManager
       const task = await this.taskManager.createTask(context.workspaceId, data);
+
+      // Emit event
+      if (this.eventEmitter) {
+        const event: TaskCreatedEvent = {
+          event: 'task.created',
+          taskId: task.taskId,
+          workspaceId: context.workspaceId,
+          timestamp: new Date().toISOString(),
+          eventId: OutboundWebhookEmitter.generateEventId(),
+          payload: {
+            title: task.title,
+            description: task.description,
+            dueDate: task.nextDueDate,
+            recurrencePattern: task.recurrencePattern,
+            tags: task.tags,
+            priority: task.priority,
+          },
+        };
+
+        await this.eventEmitter.emit(event);
+      }
 
       return this.success({
         taskId: task.taskId,
@@ -61,35 +57,10 @@ export class TaskCommandHandler extends BaseCommandHandler {
   }
 
   /**
-   * Handle: v1/tasks/update
-   */
-  async handleUpdate(data: UpdateTaskData, context: any): Promise<CommandResult> {
-    try {
-      // Validate input
-      this.validator.validateUpdateTask(data);
-
-      // Update task via TaskManager
-      const task = await this.taskManager.updateTask(context.workspaceId, data);
-
-      return this.success({
-        taskId: task.taskId,
-        updatedAt: task.updatedAt,
-        status: task.status,
-      });
-    } catch (error) {
-      if (error instanceof WebhookError) {
-        return this.fromWebhookError(error);
-      }
-      return this.error('INTERNAL_ERROR', 'Failed to update task');
-    }
-  }
-
-  /**
-   * Handle: v1/tasks/complete
+   * Handle: v1/tasks/complete (with events)
    */
   async handleComplete(data: CompleteTaskData, context: any): Promise<CommandResult> {
     try {
-      // Validate task ID
       const validation = this.validateRequired(data, ['taskId']);
       if (!validation.valid) {
         throw new WebhookError('VALIDATION_ERROR', 'taskId is required', {
@@ -97,15 +68,51 @@ export class TaskCommandHandler extends BaseCommandHandler {
         });
       }
 
-      // Validate completion timestamp if provided
       if (data.completionTimestamp && !this.validateISO8601(data.completionTimestamp)) {
         throw new WebhookError('VALIDATION_ERROR', 'completionTimestamp must be ISO-8601 format');
       }
 
-      // Complete task via TaskManager
       const task = await this.taskManager.completeTask(context.workspaceId, data);
 
-      // Build response based on whether task is recurring
+      // Emit event
+      if (this.eventEmitter) {
+        const event: TaskCompletedEvent = {
+          event: 'task.completed',
+          taskId: task.taskId,
+          workspaceId: context.workspaceId,
+          timestamp: new Date().toISOString(),
+          eventId: OutboundWebhookEmitter.generateEventId(),
+          payload: {
+            title: task.title,
+            completedAt: task.completedAt!,
+            completionNotes: data.notes,
+            isRecurring: task.recurrencePattern !== null,
+            nextDueDate: task.nextDueDate,
+          },
+        };
+
+        await this.eventEmitter.emit(event);
+
+        // If recurring, also emit regeneration event
+        if (task.recurrencePattern && task.nextDueDate) {
+          const regenEvent = {
+            event: 'recurrence.regenerated' as const,
+            taskId: task.taskId,
+            workspaceId: context.workspaceId,
+            timestamp: new Date().toISOString(),
+            eventId: OutboundWebhookEmitter.generateEventId(),
+            payload: {
+              title: task.title,
+              previousDueDate: data.completionTimestamp || new Date().toISOString(),
+              nextDueDate: task.nextDueDate,
+              regeneratedAt: new Date().toISOString(),
+            },
+          };
+
+          await this.eventEmitter.emit(regenEvent);
+        }
+      }
+
       const response: any = {
         taskId: task.taskId,
         completedAt: task.completedAt,
@@ -126,63 +133,6 @@ export class TaskCommandHandler extends BaseCommandHandler {
         return this.fromWebhookError(error);
       }
       return this.error('INTERNAL_ERROR', 'Failed to complete task');
-    }
-  }
-
-  /**
-   * Handle: v1/tasks/delete
-   */
-  async handleDelete(data: DeleteTaskData, context: any): Promise<CommandResult> {
-    try {
-      // Validate task ID
-      const validation = this.validateRequired(data, ['taskId']);
-      if (!validation.valid) {
-        throw new WebhookError('VALIDATION_ERROR', 'taskId is required');
-      }
-
-      // Delete task via TaskManager
-      await this.taskManager.deleteTask(
-        context.workspaceId,
-        data.taskId,
-        data.deleteHistory ?? false
-      );
-
-      return this.success({
-        taskId: data.taskId,
-        deletedAt: new Date().toISOString(),
-      });
-    } catch (error) {
-      if (error instanceof WebhookError) {
-        return this.fromWebhookError(error);
-      }
-      return this.error('INTERNAL_ERROR', 'Failed to delete task');
-    }
-  }
-
-  /**
-   * Handle: v1/tasks/get
-   */
-  async handleGet(data: GetTaskData, context: any): Promise<CommandResult> {
-    try {
-      // Validate task ID
-      const validation = this.validateRequired(data, ['taskId']);
-      if (!validation.valid) {
-        throw new WebhookError('VALIDATION_ERROR', 'taskId is required');
-      }
-
-      // Get task via TaskManager
-      const task = await this.taskManager.getTask(
-        context.workspaceId,
-        data.taskId,
-        data.includeHistory ?? false
-      );
-
-      return this.success(task);
-    } catch (error) {
-      if (error instanceof WebhookError) {
-        return this.fromWebhookError(error);
-      }
-      return this.error('INTERNAL_ERROR', 'Failed to retrieve task');
     }
   }
 }
