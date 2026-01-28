@@ -62,12 +62,7 @@ function createBulkSelectionStore() {
       selectedIds: new Set(taskIds)
     })),
     
-    clear: () => update(s => ({ ...s, selectedIds: new Set(), lastClickedId: null })),
-    
-    isSelected: (id: string): boolean => {
-      const state = get({ subscribe });
-      return state.selectedIds.has(id);
-    }
+    clear: () => update(s => ({ ...s, selectedIds: new Set(), lastClickedId: null }))
   };
 }
 

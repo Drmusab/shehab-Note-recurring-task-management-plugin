@@ -35,39 +35,45 @@ export function fuzzySearchTasks(
     return tasks;
   }
   
-  // Build Fuse search keys from fields
-  const searchKeys = fields.map(field => {
-    let key: string;
-    switch (field) {
-      case 'description':
-        key = 'name';
-        break;
-      case 'tags':
-        key = 'tags';
-        break;
-      case 'notes':
-        key = 'description';
-        break;
-      default:
-        key = 'name';
-    }
+  try {
+    // Build Fuse search keys from fields
+    const searchKeys = fields.map(field => {
+      let key: string;
+      switch (field) {
+        case 'description':
+          key = 'name';
+          break;
+        case 'tags':
+          key = 'tags';
+          break;
+        case 'notes':
+          key = 'description';
+          break;
+        default:
+          key = 'name';
+      }
+      
+      return {
+        name: key,
+        weight: getFieldWeight(field)
+      };
+    });
     
-    return {
-      name: key,
-      weight: getFieldWeight(field)
-    };
-  });
-  
-  const fuse = new Fuse(tasks, {
-    keys: searchKeys,
-    threshold: 0.3,
-    includeScore: true,
-    ignoreLocation: true,
-    useExtendedSearch: false
-  });
-  
-  const results = fuse.search(query);
-  return results.map(r => r.item);
+    const fuse = new Fuse(tasks, {
+      keys: searchKeys,
+      threshold: 0.3,
+      includeScore: true,
+      ignoreLocation: true,
+      useExtendedSearch: false
+    });
+    
+    const results = fuse.search(query);
+    return results.map(r => r.item);
+  } catch (error) {
+    // Fallback to simple search if Fuse.js fails
+    console.warn('Fuzzy search failed, using simple search:', error);
+    return simpleSearchTasks(tasks, query, fields);
+  }
 }
 
 /**

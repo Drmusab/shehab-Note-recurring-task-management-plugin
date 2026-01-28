@@ -27,8 +27,7 @@
     "fuse.js": "^7.1.0",
     "minimatch": "^9.0.3",
     "moment": "^2.29.4",
-    "rrule": "^2.8.1",
-    "svelte-dnd-action": "^0.9.69"
+    "rrule": "^2.8.1"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^4.0.0",

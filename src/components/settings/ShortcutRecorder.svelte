@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   import { extractKeys, formatKeyCombo } from '@/utils/keyboardHandler';
   
   export let currentKeys: string[] = [];
@@ -23,6 +23,13 @@
     window.removeEventListener('keydown', handleRecordKeydown);
     window.removeEventListener('keyup', handleRecordKeyup);
   }
+  
+  // Clean up on component destroy
+  onDestroy(() => {
+    if (recording) {
+      stopRecording();
+    }
+  });
   
   function handleRecordKeydown(e: KeyboardEvent) {
     if (!recording) return;
