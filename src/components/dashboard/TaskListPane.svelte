@@ -2,6 +2,8 @@
   import TaskRow from './TaskRow.svelte';
   import type { Task } from '@/vendor/obsidian-tasks/types/Task';
   import { onMount, onDestroy } from 'svelte';
+  import { isToday, isUpcoming, isOverdue } from './utils';
+  import { clearSelection } from '@/stores/selectedTask';
   
   export let tasks: Task[];
   export let selectedTaskId: string | undefined = undefined;
@@ -13,6 +15,7 @@
   let filter: FilterType = 'all';
   let focusIndex = 0;
   let taskRowsContainer: HTMLElement;
+  let containerElement: HTMLElement;
   
   // Filter tasks based on selected filter
   $: filteredTasks = filterTasks(tasks, filter);
@@ -47,34 +50,12 @@
     }
   }
   
-  function isToday(dueDate: string | null): boolean {
-    if (!dueDate) return false;
-    const date = new Date(dueDate);
-    const today = new Date();
-    date.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    return date.getTime() === today.getTime();
-  }
-  
-  function isUpcoming(dueDate: string | null): boolean {
-    if (!dueDate) return false;
-    const date = new Date(dueDate);
-    const today = new Date();
-    date.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    return date > today;
-  }
-  
-  function isOverdue(dueDate: string | null): boolean {
-    if (!dueDate) return false;
-    const date = new Date(dueDate);
-    const today = new Date();
-    date.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    return date < today;
-  }
-  
   function handleKeydown(e: KeyboardEvent) {
+    // Only handle keyboard events when the container has focus
+    if (!containerElement?.contains(document.activeElement)) {
+      return;
+    }
+    
     if (filteredTasks.length === 0) return;
     
     switch (e.key) {
@@ -82,12 +63,14 @@
         e.preventDefault();
         focusIndex = Math.min(focusIndex + 1, filteredTasks.length - 1);
         scrollToIndex(focusIndex);
+        focusTaskAtIndex(focusIndex);
         break;
       
       case 'ArrowUp':
         e.preventDefault();
         focusIndex = Math.max(focusIndex - 1, 0);
         scrollToIndex(focusIndex);
+        focusTaskAtIndex(focusIndex);
         break;
       
       case 'Enter':
@@ -99,7 +82,7 @@
       
       case 'Escape':
         e.preventDefault();
-        // Clear selection (handled by parent via selectedTaskStore)
+        clearSelection();
         break;
     }
   }
@@ -107,9 +90,18 @@
   function scrollToIndex(index: number) {
     if (!taskRowsContainer) return;
     const rows = taskRowsContainer.querySelectorAll('.task-row');
-    const row = rows[index];
+    const row = rows[index] as HTMLElement;
     if (row) {
       row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+  
+  function focusTaskAtIndex(index: number) {
+    if (!taskRowsContainer) return;
+    const rows = taskRowsContainer.querySelectorAll('.task-row');
+    const row = rows[index] as HTMLElement;
+    if (row) {
+      row.focus();
     }
   }
   
@@ -118,16 +110,20 @@
   }
   
   onMount(() => {
-    // Add keyboard listener to the container
-    window.addEventListener('keydown', handleKeydown);
+    // Add keyboard listener to the container instead of window
+    if (containerElement) {
+      containerElement.addEventListener('keydown', handleKeydown);
+    }
   });
   
   onDestroy(() => {
-    window.removeEventListener('keydown', handleKeydown);
+    if (containerElement) {
+      containerElement.removeEventListener('keydown', handleKeydown);
+    }
   });
 </script>
 
-<div class="task-list-pane">
+<div class="task-list-pane" bind:this={containerElement}>
   <div class="task-list-header">
     <select bind:value={filter} class="filter-select">
       <option value="all">All Tasks ({taskCounts.all})</option>

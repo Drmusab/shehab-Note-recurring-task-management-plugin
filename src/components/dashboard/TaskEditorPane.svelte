@@ -14,7 +14,7 @@
   async function handleSave(event: CustomEvent<Task[]>) {
     try {
       await onSave(event.detail);
-      toast.success('Task saved');
+      // Toast notification handled by parent onSave callback
     } catch (error) {
       console.error('Failed to save task:', error);
       toast.error('Failed to save task');

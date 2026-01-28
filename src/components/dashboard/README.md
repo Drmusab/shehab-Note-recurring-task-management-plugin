@@ -212,7 +212,7 @@ describe('DashboardSplitView', () => {
 ## Performance Optimizations
 
 - Task counts are computed reactively using Svelte's `$:` syntax
-- Filter logic is debounced to prevent excessive re-renders
+- Date utility functions are shared to avoid duplication
 - Virtual scrolling can be added for large task lists (> 100 tasks)
 
 ## Accessibility

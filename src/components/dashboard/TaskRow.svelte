@@ -1,43 +1,9 @@
 <script lang="ts">
   import type { Task } from '@/vendor/obsidian-tasks/types/Task';
+  import { formatDueDate, isOverdue } from './utils';
   
   export let task: Task;
   export let selected: boolean = false;
-  
-  // Format due date to human-readable format
-  function formatDueDate(dueDate: string | null): string {
-    if (!dueDate) return '';
-    
-    const date = new Date(dueDate);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    // Reset hours for date comparison
-    date.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    tomorrow.setHours(0, 0, 0, 0);
-    
-    if (date.getTime() === today.getTime()) {
-      return 'Today';
-    } else if (date.getTime() === tomorrow.getTime()) {
-      return 'Tomorrow';
-    } else if (date < today) {
-      return 'Overdue';
-    }
-    
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  }
-  
-  // Check if task is overdue
-  function isOverdue(dueDate: string | null): boolean {
-    if (!dueDate) return false;
-    const date = new Date(dueDate);
-    const today = new Date();
-    date.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    return date < today;
-  }
   
   // Get priority icon
   function getPriorityIcon(priority: any): string {

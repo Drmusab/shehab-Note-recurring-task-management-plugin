@@ -1,7 +1,9 @@
 /**
- * Split-View Dashboard Styles
+ * Split-View Dashboard Styles (Global)
  * 
- * Styles for the new split-view dashboard layout with task list and editor panes.
+ * Global styles for the split-view dashboard layout.
+ * Note: Component-specific styles are also defined in DashboardSplitView.svelte
+ * using scoped <style> blocks. This file provides global overrides if needed.
  */
 
 /* Root split-view container */

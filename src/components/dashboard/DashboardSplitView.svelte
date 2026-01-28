@@ -13,9 +13,6 @@
   export let onNewTask: (() => void) | undefined = undefined;
   export let onClose: (() => void) | undefined = undefined;
   
-  let currentTask: Task | null = null;
-  let unsubscribe: (() => void) | undefined;
-  
   // Subscribe to selectedTaskStore
   $: currentTask = $selectedTaskStore;
   
@@ -30,10 +27,7 @@
   });
   
   onDestroy(() => {
-    // Clean up subscription
-    if (unsubscribe) {
-      unsubscribe();
-    }
+    // Clean up is handled automatically by Svelte for $ subscriptions
   });
   
   function handleTaskSelect(task: Task) {

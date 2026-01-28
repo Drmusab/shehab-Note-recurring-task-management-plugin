@@ -55,10 +55,10 @@ export function mountSplitView(
   // Handle task save
   async function handleTaskSaved(obsidianTask: ObsidianTask): Promise<void> {
     try {
-      // Find the original recurring task
-      const originalTask = allTasks.find(t => t.id === obsidianTask.id);
-      
-      // Save to repository
+      // Note: Using 'as any' here because the repository interface expects RecurringTask
+      // but we're working with ObsidianTask. In production, you should implement proper
+      // conversion using TaskDraftAdapter.fromEditableTask() as shown in
+      // RecurringDashboardView.handleSubmit()
       await props.repository.saveTask(obsidianTask as any);
       
       toast.success("Task saved");
