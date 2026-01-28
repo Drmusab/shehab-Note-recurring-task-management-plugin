@@ -12,6 +12,7 @@ type PluginEventMap = {
   'task:refresh': void;
   'task:updated': { taskId: string };
   'task:saved': { task: any; isNew: boolean };
+  'task:edit': { task?: any };
   'editor:open': { mode: 'create' | 'edit'; taskId?: string; prefill?: any };
 };
 
