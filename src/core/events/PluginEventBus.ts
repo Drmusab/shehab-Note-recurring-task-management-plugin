@@ -10,6 +10,7 @@ type PluginEventMap = {
   'task:snooze': { taskId: string; minutes: number };
   'task:settings': { action?: string };
   'task:refresh': void;
+  'task:updated': { taskId: string };
 };
 
 type EventHandler<T> = (data: T) => void;

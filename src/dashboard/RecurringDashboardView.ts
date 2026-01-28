@@ -2,16 +2,18 @@
  * Recurring Task Dashboard View
  * 
  * This view provides a persistent dashboard for managing recurring tasks.
- * It mounts the TaskEditorModal component in a persistent sidebar view
+ * It mounts the Obsidian-Tasks EditTask component in a persistent sidebar view
  * instead of as a modal dialog.
  */
 
 import { mount, unmount } from "svelte";
-import TaskEditorModal from "@/components/TaskEditorModal.svelte";
+import EditTask from "@/vendor/obsidian-tasks/ui/EditTask.svelte";
 import type { Task } from "@/core/models/Task";
 import type { TaskRepositoryProvider } from "@/core/storage/TaskRepository";
 import type { SettingsService } from "@/core/settings/SettingsService";
 import type { PatternLearner } from "@/core/ml/PatternLearner";
+import { ObsidianTasksUIBridge } from "@/adapters/ObsidianTasksUIBridge";
+import { pluginEventBus } from "@/core/events/PluginEventBus";
 
 export interface RecurringDashboardViewProps {
   repository: TaskRepositoryProvider;
@@ -21,12 +23,13 @@ export interface RecurringDashboardViewProps {
 }
 
 /**
- * Dashboard view that mounts the task editor as a persistent interface
+ * Dashboard view that mounts Obsidian-Tasks EditTask component
  */
 export class RecurringDashboardView {
   private component: ReturnType<typeof mount> | null = null;
   private container: HTMLElement;
   private props: RecurringDashboardViewProps;
+  private currentTask?: Task;
 
   constructor(
     container: HTMLElement,
@@ -49,25 +52,52 @@ export class RecurringDashboardView {
     
     // Add dashboard wrapper
     const wrapper = document.createElement("div");
-    wrapper.className = "recurring-dashboard-wrapper";
+    wrapper.className = "recurring-dashboard-wrapper obsidian-tasks-modal";
     this.container.appendChild(wrapper);
 
-    // Mount the task editor component
-    this.component = mount(TaskEditorModal, {
+    // Prepare Obsidian-Tasks props
+    const obsidianTask = this.currentTask
+      ? ObsidianTasksUIBridge.toObsidianTask(this.currentTask)
+      : ObsidianTasksUIBridge.createEmptyTask();
+
+    const allTasks = this.props.repository.getAllTasks();
+    const allObsidianTasks = allTasks.map(ObsidianTasksUIBridge.toObsidianTask);
+
+    // Mount the Obsidian-Tasks EditTask component
+    this.component = mount(EditTask, {
       target: wrapper,
       props: {
-        repository: this.props.repository,
-        settingsService: this.props.settingsService,
-        patternLearner: this.props.patternLearner,
-        task: undefined, // Create new task
-        onClose: () => {
-          this.handleClose();
-        },
-        onSave: (task: Task) => {
-          this.handleSave(task);
-        },
+        task: obsidianTask,
+        onSubmit: this.handleSubmit.bind(this),
+        statusOptions: ObsidianTasksUIBridge.getStatusOptions(),
+        allTasks: allObsidianTasks,
       },
     });
+  }
+
+  /**
+   * Handle form submission from Obsidian-Tasks UI
+   */
+  private async handleSubmit(updatedTasks: any[]): Promise<void> {
+    if (updatedTasks.length === 0) {
+      this.handleClose();
+      return;
+    }
+
+    const obsidianTask = updatedTasks[0];
+    const recurringTask = ObsidianTasksUIBridge.fromObsidianTask(
+      obsidianTask,
+      this.currentTask
+    );
+
+    await this.props.repository.saveTask(recurringTask);
+    
+    // Emit event for dashboard refresh
+    pluginEventBus.emit('task:updated', { taskId: recurringTask.id });
+
+    // Reset to new task form
+    this.currentTask = undefined;
+    this.refresh();
   }
 
   /**
@@ -78,7 +108,6 @@ export class RecurringDashboardView {
       unmount(this.component);
       this.component = null;
     }
-    // Use modern DOM API for cleaner cleanup
     this.container.replaceChildren();
   }
 
@@ -94,40 +123,16 @@ export class RecurringDashboardView {
    * Load a task for editing
    */
   loadTask(task: Task): void {
-    this.unmount();
-    
-    const wrapper = document.createElement("div");
-    wrapper.className = "recurring-dashboard-wrapper";
-    this.container.appendChild(wrapper);
-
-    this.component = mount(TaskEditorModal, {
-      target: wrapper,
-      props: {
-        repository: this.props.repository,
-        settingsService: this.props.settingsService,
-        patternLearner: this.props.patternLearner,
-        task,
-        onClose: () => {
-          this.handleClose();
-        },
-        onSave: (updatedTask: Task) => {
-          this.handleSave(updatedTask);
-        },
-      },
-    });
+    this.currentTask = task;
+    this.refresh();
   }
 
   private handleClose(): void {
-    // Reset to new task form after close
+    this.currentTask = undefined;
     this.refresh();
     
     if (this.props.onClose) {
       this.props.onClose();
     }
-  }
-
-  private handleSave(task: Task): void {
-    // Reset to new task form after save
-    this.refresh();
   }
 }

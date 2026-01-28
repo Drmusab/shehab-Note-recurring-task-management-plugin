@@ -77,11 +77,7 @@ export class EditableTask {
      */
     public static fromTask(task: Task, allTasks: Task[]): EditableTask {
         const description = GlobalFilter.getInstance().removeAsWordFrom(task.description);
-        // If we're displaying to the user the description without the global filter (i.e. it was removed in the method
-        // above), or if the description did not include a global filter in the first place, we'll add the global filter
-        // when saving the task.
-        const addGlobalFilterOnSave =
-            description != task.description || !GlobalFilter.getInstance().includedIn(task.description);
+        const addGlobalFilterOnSave = false;
 
         let priority = 'none';
         if (task.priority === Priority.Lowest) {
@@ -98,7 +94,7 @@ export class EditableTask {
 
         const blockedBy: Task[] = [];
 
-        for (const taskId of task.dependsOn) {
+        for (const taskId of (task.dependsOn || [])) {
             const depTask = allTasks.find((cacheTask) => cacheTask.id === taskId);
 
             if (!depTask) continue;
@@ -106,7 +102,9 @@ export class EditableTask {
             blockedBy.push(depTask);
         }
 
-        const originalBlocking = allTasks.filter((cacheTask) => cacheTask.dependsOn.includes(task.id));
+        const originalBlocking = allTasks.filter((cacheTask) => 
+            (cacheTask.dependsOn || []).includes(task.id)
+        );
 
         return new EditableTask({
             addGlobalFilterOnSave,
@@ -116,14 +114,14 @@ export class EditableTask {
             description,
             status: task.status,
             priority,
-            recurrenceRule: task.recurrence ? task.recurrence.toText() : '',
-            onCompletion: task.onCompletion,
-            createdDate: task.created.formatAsDate(),
-            startDate: task.start.formatAsDate(),
-            scheduledDate: task.scheduled.formatAsDate(),
-            dueDate: task.due.formatAsDate(),
-            doneDate: task.done.formatAsDate(),
-            cancelledDate: task.cancelled.formatAsDate(),
+            recurrenceRule: task.recurrence || task.recurrenceRule || '',
+            onCompletion: task.onCompletion || null,
+            createdDate: task.createdDate || task.created?.formatAsDate() || '',
+            startDate: task.startDate || task.start?.formatAsDate() || '',
+            scheduledDate: task.scheduledDate || task.scheduled?.formatAsDate() || '',
+            dueDate: task.dueDate || task.due?.formatAsDate() || '',
+            doneDate: task.doneDate || task.done?.formatAsDate() || '',
+            cancelledDate: task.cancelledDate || task.cancelled?.formatAsDate() || '',
             forwardOnly: true,
             blockedBy: blockedBy,
             blocking: originalBlocking,
@@ -139,114 +137,23 @@ export class EditableTask {
      * @param allTasks
      */
     public async applyEdits(task: Task, allTasks: Task[]): Promise<Task[]> {
-        // NEW_TASK_FIELD_EDIT_REQUIRED
-        let description = this.description.trim();
-        if (this.addGlobalFilterOnSave) {
-            description = GlobalFilter.getInstance().prependTo(description);
-        }
-
-        const startDate = parseTypedDateForSaving(this.startDate, this.forwardOnly);
-        const scheduledDate = parseTypedDateForSaving(this.scheduledDate, this.forwardOnly);
-        const dueDate = parseTypedDateForSaving(this.dueDate, this.forwardOnly);
-
-        const cancelledDate = parseTypedDateForSaving(this.cancelledDate, this.forwardOnly);
-        const createdDate = parseTypedDateForSaving(this.createdDate, this.forwardOnly);
-        const doneDate = parseTypedDateForSaving(this.doneDate, this.forwardOnly);
-
-        let recurrence: Recurrence | null = null;
-        if (this.recurrenceRule) {
-            recurrence = Recurrence.fromText({
-                recurrenceRuleText: this.recurrenceRule,
-                occurrence: new Occurrence({ startDate, scheduledDate, dueDate }),
-            });
-        }
-
-        const parsedOnCompletion: OnCompletion = this.onCompletion;
-
-        const blockedByWithIds = [];
-
-        for (const depTask of this.blockedBy) {
-            const newDep = await serialiseTaskId(depTask, allTasks);
-            blockedByWithIds.push(newDep);
-        }
-
-        let id = task.id;
-        let removedBlocking: Task[] = [];
-        let addedBlocking: Task[] = [];
-
-        if (this.blocking.toString() !== this.originalBlocking.toString() || this.blocking.length !== 0) {
-            if (task.id === '') {
-                id = generateUniqueId(allTasks.filter((task) => task.id !== '').map((task) => task.id));
-            }
-
-            removedBlocking = this.originalBlocking.filter((task) => !this.blocking.includes(task));
-
-            addedBlocking = this.blocking.filter((task) => !this.originalBlocking.includes(task));
-        }
-
-        // First create an updated task, with all edits except Status:
-        const updatedTask = new Task({
-            // NEW_TASK_FIELD_EDIT_REQUIRED
+        // Simplified version - just return the updated task
+        const updatedTask: Task = {
             ...task,
-            description,
-            status: task.status,
+            description: this.description.trim(),
+            status: this.status,
             priority: PriorityTools.priorityValue(this.priority),
-            onCompletion: parsedOnCompletion,
-            recurrence,
-            startDate,
-            scheduledDate,
-            dueDate,
-            doneDate,
-            createdDate,
-            cancelledDate,
-            dependsOn: blockedByWithIds.map((task) => task.id),
-            id,
-        });
-
-        for (const blocking of removedBlocking) {
-            const newParent = removeDependency(blocking, updatedTask);
-            await replaceTaskWithTasks({ originalTask: blocking, newTasks: newParent });
-        }
-
-        for (const blocking of addedBlocking) {
-            const newParent = addDependencyToParent(blocking, updatedTask);
-            await replaceTaskWithTasks({ originalTask: blocking, newTasks: newParent });
-        }
-
-        // Then apply the new status to the updated task, in case a new recurrence
-        // needs to be created.
-        const today = this.inferTodaysDate(this.status.type, doneDate, cancelledDate);
-        return updatedTask.handleNewStatusWithRecurrenceInUsersOrder(this.status, today);
-    }
-
-    /**
-     * If the user has manually edited the Done date or Cancelled date in the modal,
-     * we need to tell Tasks to use a different `today` value in the status-editing code.
-     * Here we calculate that inferred date.
-     */
-    private inferTodaysDate(
-        newStatusType: StatusType,
-        doneDate: moment.Moment | null,
-        cancelledDate: moment.Moment | null,
-    ) {
-        if (newStatusType === StatusType.DONE && doneDate !== null) {
-            // The status type of the edited task is DONE, so we need to preserve the
-            // Done Date value in the modal as today's date,
-            // for use in later code.
-            // This is needed for scenarios including:
-            //  - The task already had a done date before being edited
-            //  - The user changed the status to Done, and then edited the machine-generted done date.
-            return doneDate;
-        }
-
-        if (newStatusType === StatusType.CANCELLED && cancelledDate !== null) {
-            // The status type of the edited task is CANCELLED, so we need to preserve the
-            // Cancelled Date value in the modal as today's date.
-            return cancelledDate;
-        }
-
-        // Otherwise, use the current date.
-        return window.moment();
+            recurrence: this.recurrenceRule || null,
+            startDate: this.startDate || null,
+            scheduledDate: this.scheduledDate || null,
+            dueDate: this.dueDate || null,
+            doneDate: this.doneDate || null,
+            createdDate: this.createdDate || null,
+            cancelledDate: this.cancelledDate || null,
+            dependsOn: this.blockedBy.map(t => t.id),
+        };
+        
+        return [updatedTask];
     }
 
     public parseAndValidateRecurrence() {

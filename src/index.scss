@@ -2,6 +2,13 @@
  * Global styles for Recurring Tasks Plugin
  */
 
+/* Import Obsidian-Tasks UI styles */
+@import './vendor/obsidian-tasks/ui/EditTask.scss';
+@import './vendor/obsidian-tasks/ui/Dependency.scss';
+
+/* Import Dashboard styles */
+@import './dashboard/styles/dashboard.scss';
+
 /* Reset and base styles */
 * {
   box-sizing: border-box;
