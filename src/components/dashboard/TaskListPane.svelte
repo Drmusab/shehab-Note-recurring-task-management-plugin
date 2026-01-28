@@ -1,53 +1,35 @@
 <script lang="ts">
   import TaskRow from './TaskRow.svelte';
+  import DraggableTaskRow from './DraggableTaskRow.svelte';
+  import BulkActionsBar from './BulkActionsBar.svelte';
+  import BulkModeToggle from './BulkModeToggle.svelte';
   import type { Task } from '@/vendor/obsidian-tasks/types/Task';
   import { onMount, onDestroy } from 'svelte';
-  import { isToday, isUpcoming, isOverdue } from './utils';
   import { clearSelection } from '@/stores/selectedTask';
+  import { sortByOrder } from '@/utils/reorderTasks';
+  import { bulkSelectionStore } from '@/stores/bulkSelectionStore';
   
   export let tasks: Task[];
   export let selectedTaskId: string | undefined = undefined;
   export let onTaskSelect: (task: Task) => void;
   export let onNewTask: () => void;
+  export let onTaskReorder: ((reorderedTasks: Task[]) => void) | undefined = undefined;
+  export let onBulkUpdate: ((updatedTasks: Task[]) => void) | undefined = undefined;
+  export let onBulkDelete: ((taskIds: string[]) => void) | undefined = undefined;
+  export let enableDragReorder: boolean = false;
   
-  type FilterType = 'all' | 'today' | 'upcoming' | 'recurring' | 'overdue';
-  
-  let filter: FilterType = 'all';
   let focusIndex = 0;
   let taskRowsContainer: HTMLElement;
   let containerElement: HTMLElement;
+  let draggingTask: Task | null = null;
+  let dragOverTask: Task | null = null;
   
-  // Filter tasks based on selected filter
-  $: filteredTasks = filterTasks(tasks, filter);
+  // Sort tasks by order if drag-reorder is enabled
+  $: displayTasks = enableDragReorder ? sortByOrder(tasks) : tasks;
   
-  // Calculate task counts for each filter
-  $: taskCounts = {
-    all: tasks.length,
-    today: tasks.filter(t => isToday(t.dueDate)).length,
-    upcoming: tasks.filter(t => isUpcoming(t.dueDate)).length,
-    recurring: tasks.filter(t => t.recurrence).length,
-    overdue: tasks.filter(t => isOverdue(t.dueDate)).length,
-  };
-  
-  // Reset focus index when filter changes
-  $: if (filter) {
+  // Reset focus index when tasks change
+  $: if (displayTasks) {
     focusIndex = 0;
-  }
-  
-  function filterTasks(tasks: Task[], filter: FilterType): Task[] {
-    switch (filter) {
-      case 'today':
-        return tasks.filter(t => isToday(t.dueDate));
-      case 'upcoming':
-        return tasks.filter(t => isUpcoming(t.dueDate));
-      case 'recurring':
-        return tasks.filter(t => t.recurrence);
-      case 'overdue':
-        return tasks.filter(t => isOverdue(t.dueDate));
-      case 'all':
-      default:
-        return tasks;
-    }
   }
   
   function handleKeydown(e: KeyboardEvent) {
@@ -56,12 +38,12 @@
       return;
     }
     
-    if (filteredTasks.length === 0) return;
+    if (displayTasks.length === 0) return;
     
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        focusIndex = Math.min(focusIndex + 1, filteredTasks.length - 1);
+        focusIndex = Math.min(focusIndex + 1, displayTasks.length - 1);
         scrollToIndex(focusIndex);
         focusTaskAtIndex(focusIndex);
         break;
@@ -75,8 +57,8 @@
       
       case 'Enter':
         e.preventDefault();
-        if (filteredTasks[focusIndex]) {
-          onTaskSelect(filteredTasks[focusIndex]);
+        if (displayTasks[focusIndex]) {
+          onTaskSelect(displayTasks[focusIndex]);
         }
         break;
       
@@ -106,7 +88,51 @@
   }
   
   function handleTaskClick(task: Task) {
-    onTaskSelect(task);
+    // In bulk mode, clicking toggles selection
+    if ($bulkSelectionStore.enabled) {
+      bulkSelectionStore.toggleTask(task.id);
+    } else {
+      onTaskSelect(task);
+    }
+  }
+  
+  function handleBulkToggle(taskId: string) {
+    bulkSelectionStore.toggleTask(taskId);
+  }
+  
+  // Drag-and-drop handlers
+  function handleDragStart(task: Task) {
+    draggingTask = task;
+  }
+  
+  function handleDragEnd() {
+    draggingTask = null;
+    dragOverTask = null;
+  }
+  
+  function handleDrop(targetTask: Task) {
+    if (!draggingTask || !onTaskReorder) return;
+    
+    const fromIndex = displayTasks.findIndex(t => t.id === draggingTask!.id);
+    const toIndex = displayTasks.findIndex(t => t.id === targetTask.id);
+    
+    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+    
+    // Reorder tasks
+    const reordered = [...displayTasks];
+    const [removed] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, removed);
+    
+    // Update order field
+    const withOrder = reordered.map((task, index) => ({
+      ...task,
+      order: index
+    }));
+    
+    onTaskReorder(withOrder);
+    
+    draggingTask = null;
+    dragOverTask = null;
   }
   
   onMount(() => {
@@ -124,32 +150,52 @@
 </script>
 
 <div class="task-list-pane" bind:this={containerElement}>
+  {#if $bulkSelectionStore.enabled}
+    <BulkActionsBar 
+      allTasks={displayTasks}
+      {onBulkUpdate}
+      {onBulkDelete}
+    />
+  {/if}
+  
   <div class="task-list-header">
-    <select bind:value={filter} class="filter-select">
-      <option value="all">All Tasks ({taskCounts.all})</option>
-      <option value="today">Today ({taskCounts.today})</option>
-      <option value="upcoming">Upcoming ({taskCounts.upcoming})</option>
-      <option value="recurring">Recurring ({taskCounts.recurring})</option>
-      <option value="overdue">Overdue ({taskCounts.overdue})</option>
-    </select>
+    <div class="task-count">
+      {displayTasks.length} {displayTasks.length === 1 ? 'task' : 'tasks'}
+    </div>
+    <BulkModeToggle />
     <button class="new-task-btn" on:click={onNewTask}>
       + New Task
     </button>
   </div>
   
   <div class="task-rows" bind:this={taskRowsContainer}>
-    {#if filteredTasks.length === 0}
+    {#if displayTasks.length === 0}
       <div class="no-tasks">
         <p>No tasks found</p>
       </div>
     {:else}
-      {#each filteredTasks as task, index (task.id)}
-        <div on:click={() => handleTaskClick(task)} role="button" tabindex="0">
-          <TaskRow 
-            {task} 
+      {#each displayTasks as task, index (task.id)}
+        {#if enableDragReorder}
+          <DraggableTaskRow 
+            {task}
             selected={task.id === selectedTaskId}
+            bulkSelected={$bulkSelectionStore.selectedIds.has(task.id)}
+            onBulkToggle={() => handleBulkToggle(task.id)}
+            isDragging={draggingTask?.id === task.id}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDrop={handleDrop}
           />
-        </div>
+        {:else}
+          <div on:click={() => handleTaskClick(task)} role="button" tabindex="0">
+            <TaskRow 
+              {task} 
+              selected={task.id === selectedTaskId}
+              bulkSelected={$bulkSelectionStore.selectedIds.has(task.id)}
+              onBulkToggle={() => handleBulkToggle(task.id)}
+            />
+          </div>
+        {/if}
       {/each}
     {/if}
   </div>
@@ -173,23 +219,15 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    justify-content: space-between;
     z-index: 1;
   }
   
-  .filter-select {
+  .task-count {
     flex: 1;
-    padding: 0.5rem;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 4px;
-    background: var(--background-primary);
-    color: var(--text-normal);
     font-size: 0.9rem;
-    cursor: pointer;
-  }
-  
-  .filter-select:focus {
-    outline: 2px solid var(--interactive-accent);
-    outline-offset: -2px;
+    color: var(--text-muted);
+    font-weight: 500;
   }
   
   .new-task-btn {

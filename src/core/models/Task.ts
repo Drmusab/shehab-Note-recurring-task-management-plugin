@@ -35,6 +35,9 @@ export interface Task {
   /** Whether task is active */
   enabled: boolean;
 
+  /** Display order for manual task ordering (Phase 4: Drag-to-reorder) */
+  order?: number;
+
   /** Linked block ID in Shehab-Note */
   linkedBlockId?: string;
 
