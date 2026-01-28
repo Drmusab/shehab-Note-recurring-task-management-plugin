@@ -130,7 +130,7 @@ TaskValidator.validateTaskDraft()
     ↓
 TaskDraftAdapter.taskDraftToTask()
     ↓
-RecurrenceParser.fromText()
+RecurrenceParser.parse()
     ↓
 TaskRepository.saveTask()
     ↓

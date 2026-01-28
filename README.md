@@ -89,7 +89,7 @@ The plugin features a modern, well-architected dashboard system with clear separ
 - **Adapter Layer** - Type-safe data transformation between UI and business logic
 - **Validation Layer** - Robust input validation before persistence
 - **Persistent Dashboard** - Always-available sidebar interface for quick task creation
-- **Comprehensive Testing** - 52+ unit tests for adapters and validators
+- **Comprehensive Testing** - 59 unit and integration tests for adapters, validators, and dashboard
 
 **Documentation:**
 - [Architecture Diagram](docs/integration/architecture-diagram.md) - System architecture overview

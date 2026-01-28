@@ -78,7 +78,8 @@ export class RecurringDashboardView {
       unmount(this.component);
       this.component = null;
     }
-    this.container.innerHTML = "";
+    // Use modern DOM API for cleaner cleanup
+    this.container.replaceChildren();
   }
 
   /**

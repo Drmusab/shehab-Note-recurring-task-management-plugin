@@ -67,7 +67,7 @@ export function validateTaskDraft(draft: TaskDraft): ValidationResult {
     if (start > due) {
       errors.push({
         field: "startAt",
-        message: "Start date must be before due date",
+        message: "Start date must be before or equal to due date",
       });
     }
   }
@@ -78,7 +78,7 @@ export function validateTaskDraft(draft: TaskDraft): ValidationResult {
     if (scheduled > due) {
       errors.push({
         field: "scheduledAt",
-        message: "Scheduled date must be before due date",
+        message: "Scheduled date must be before or equal to due date",
       });
     }
   }

@@ -60,7 +60,7 @@ TaskEditorModal.handleSave()
 
 ### Step 5: Recurrence Parsing
 ```typescript
-RecurrenceParser.fromText("every monday at 10am")
+RecurrenceParser.parse("every monday at 10am")
 ↓
 {
   type: "weekly",
@@ -179,7 +179,7 @@ User Action: Change recurrence to "every 2 weeks on monday"
 
 RecurrenceInput.handleChange()
 ├─ recurrenceText = "every 2 weeks on monday"
-├─ RecurrenceParser.fromText(recurrenceText)
+├─ RecurrenceParser.parse(recurrenceText)
 ├─ recurrenceFrequency = { type: "weekly", interval: 2, ... }
 └─ recurrenceValid = true
 ```
@@ -379,7 +379,7 @@ User types in recurrence field
 ↓
 Debounce input (300ms)
 ↓
-RecurrenceParser.fromText()
+RecurrenceParser.parse()
 ↓
 Update validation state
 ```

@@ -17,7 +17,7 @@ This document provides a comprehensive mapping between the UI model (TaskDraft),
 | `scheduledAt` | `scheduledAt` | scheduled | ISO string? | Direct copy | Optional |
 | `startAt` | `startAt` | start | ISO string? | Direct copy | Optional |
 | `recurrenceText` | `recurrenceText` | recurrence | string | Direct copy | Human-readable |
-| - | `frequency` | - | Frequency | RecurrenceParser.fromText() | Parsed from recurrenceText |
+| - | `frequency` | - | Frequency | RecurrenceParser.parse() | Parsed from recurrenceText |
 | `whenDone` | `whenDone` | - | boolean? | Direct copy | Recur from completion |
 | `blockedBy` | `blockedBy` | - | string[]? | Direct copy | Task IDs blocking this |
 | `dependsOn` | `dependsOn` | dependsOn | string[]? | Direct copy | Task IDs this depends on |
@@ -151,7 +151,7 @@ Human-readable natural language:
 interface Frequency {
   type: "daily" | "weekly" | "monthly" | "yearly";
   interval: number;
-  weekdays?: number[];      // 0=Sunday, 6=Saturday
+  weekdays?: number[];      // Monday=0, Tuesday=1, ..., Sunday=6 (non-standard indexing)
   dayOfMonth?: number;      // 1-31
   month?: number;           // 1-12
   time?: string;            // "HH:MM"
@@ -161,6 +161,8 @@ interface Frequency {
   dtstart?: string;         // ISO start date
 }
 ```
+
+**Note:** Weekday indexing uses Monday=0 (non-standard). This differs from JavaScript's Date.getDay() which uses Sunday=0.
 
 ### RRULE Mapping
 
@@ -279,7 +281,7 @@ taskToTaskDraft(task: Task): TaskDraft {
 Converts TaskDraft to partial Task for saving:
 ```typescript
 taskDraftToTask(draft: TaskDraft): Partial<Task> {
-  const frequency = RecurrenceParser.fromText(draft.recurrenceText);
+  const frequency = RecurrenceParser.parse(draft.recurrenceText);
   
   return {
     id: draft.id,

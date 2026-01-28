@@ -127,7 +127,7 @@ describe("TaskValidator", () => {
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.field === "startAt")).toBe(true);
       expect(result.errors.find((e) => e.field === "startAt")?.message).toBe(
-        "Start date must be before due date"
+        "Start date must be before or equal to due date"
       );
     });
 
@@ -145,7 +145,7 @@ describe("TaskValidator", () => {
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.field === "scheduledAt")).toBe(true);
       expect(result.errors.find((e) => e.field === "scheduledAt")?.message).toBe(
-        "Scheduled date must be before due date"
+        "Scheduled date must be before or equal to due date"
       );
     });
 
