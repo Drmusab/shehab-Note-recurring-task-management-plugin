@@ -1,9 +1,9 @@
 <script lang="ts">
     import { computePosition, flip, offset, shift, size } from '@floating-ui/dom';
-    import type { Task } from '../types/Task';
-    import type { EditableTask } from './EditableTask';
-    import { descriptionAdjustedForDependencySearch, searchForCandidateTasksForDependency } from './DependencyHelpers';
-    import { labelContentWithAccessKey } from './EditTaskHelpers';
+    import type { Task } from '@/vendor/obsidian-tasks/types/Task';
+    import type { EditableTask } from '@/vendor/obsidian-tasks/ui/EditableTask';
+    import { descriptionAdjustedForDependencySearch, searchForCandidateTasksForDependency } from '@/vendor/obsidian-tasks/ui/DependencyHelpers';
+    import { labelContentWithAccessKey } from '@/vendor/obsidian-tasks/ui/EditTaskHelpers';
 
     export let task: Task;
     export let editableTask: EditableTask;

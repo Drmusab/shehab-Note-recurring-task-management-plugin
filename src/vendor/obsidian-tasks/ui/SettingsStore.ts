@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import { getSettings, updateSettings } from '../types/Settings';
+import { getSettings, updateSettings } from '@/vendor/obsidian-tasks/types/Settings';
 
 // This store is to be used by the UI only
 export const settingsStore = writable(getSettings());

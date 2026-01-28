@@ -1,8 +1,8 @@
 <script lang="ts">
-    import type { Status } from '../types/Status';
-    import type { Task } from '../types/Task';
-    import type { EditableTask } from './EditableTask';
-    import { labelContentWithAccessKey } from './EditTaskHelpers';
+    import type { Status } from '@/vendor/obsidian-tasks/types/Status';
+    import type { Task } from '@/vendor/obsidian-tasks/types/Task';
+    import type { EditableTask } from '@/vendor/obsidian-tasks/ui/EditableTask';
+    import { labelContentWithAccessKey } from '@/vendor/obsidian-tasks/ui/EditTaskHelpers';
     
     type TasksDate = any; // Stub type
 

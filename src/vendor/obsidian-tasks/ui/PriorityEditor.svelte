@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { TASK_FORMATS } from '../types/Settings';
+    import { TASK_FORMATS } from '@/vendor/obsidian-tasks/types/Settings';
 
     export let priority: string;
     export let withAccessKeys: boolean;

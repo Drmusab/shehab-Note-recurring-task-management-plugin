@@ -1,5 +1,5 @@
-import type { Task } from '../types/Task';
-import { GlobalFilter } from '../types/Stubs';
+import type { Task } from '@/vendor/obsidian-tasks/types/Task';
+import { GlobalFilter } from '@/vendor/obsidian-tasks/shims/ObsidianShim';
 
 const MAX_SEARCH_RESULTS = 20;
 

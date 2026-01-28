@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { doAutocomplete, parseTypedDateForDisplayUsingFutureDate } from '../types/Stubs';
-    import { labelContentWithAccessKey } from './EditTaskHelpers';
+    import { doAutocomplete, parseTypedDateForDisplayUsingFutureDate } from '@/vendor/obsidian-tasks/shims/ObsidianShim';
+    import { labelContentWithAccessKey } from '@/vendor/obsidian-tasks/ui/EditTaskHelpers';
 
     export let id: 'start' | 'scheduled' | 'due' | 'done' | 'created' | 'cancelled';
     export let dateSymbol: string;

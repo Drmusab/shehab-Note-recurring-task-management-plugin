@@ -1,16 +1,16 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { defaultEditModalShowSettings, TASK_FORMATS, getSettings } from '../types/Settings';
-    import type { Status } from '../types/Status';
-    import type { Task } from '../types/Task';
-    import { settingsStore } from './SettingsStore';
-    import DateEditor from './DateEditor.svelte';
-    import Dependency from './Dependency.svelte';
-    import { EditableTask } from './EditableTask';
-    import { labelContentWithAccessKey } from './EditTaskHelpers';
-    import PriorityEditor from './PriorityEditor.svelte';
-    import RecurrenceEditor from './RecurrenceEditor.svelte';
-    import StatusEditor from './StatusEditor.svelte';
+    import { defaultEditModalShowSettings, TASK_FORMATS, getSettings } from '@/vendor/obsidian-tasks/types/Settings';
+    import type { Status } from '@/vendor/obsidian-tasks/types/Status';
+    import type { Task } from '@/vendor/obsidian-tasks/types/Task';
+    import { settingsStore } from '@/vendor/obsidian-tasks/ui/SettingsStore';
+    import DateEditor from '@/vendor/obsidian-tasks/ui/DateEditor.svelte';
+    import Dependency from '@/vendor/obsidian-tasks/ui/Dependency.svelte';
+    import { EditableTask } from '@/vendor/obsidian-tasks/ui/EditableTask';
+    import { labelContentWithAccessKey } from '@/vendor/obsidian-tasks/ui/EditTaskHelpers';
+    import PriorityEditor from '@/vendor/obsidian-tasks/ui/PriorityEditor.svelte';
+    import RecurrenceEditor from '@/vendor/obsidian-tasks/ui/RecurrenceEditor.svelte';
+    import StatusEditor from '@/vendor/obsidian-tasks/ui/StatusEditor.svelte';
 
     // These exported variables are passed in as props by TaskModal.onOpen():
     export let task: Task;

@@ -1,7 +1,7 @@
-import { GlobalFilter, parseTypedDateForSaving, PriorityTools, replaceTaskWithTasks } from '../types/Stubs';
-import type { Status } from '../types/Status';
-import { StatusType } from '../types/Status';
-import { Occurrence, Priority, Recurrence, Task, addDependencyToParent, ensureTaskHasId, generateUniqueId, removeDependency } from '../types/Task';
+import { GlobalFilter, parseTypedDateForSaving, PriorityTools, replaceTaskWithTasks } from '@/vendor/obsidian-tasks/shims/ObsidianShim';
+import type { Status } from '@/vendor/obsidian-tasks/types/Status';
+import { StatusType } from '@/vendor/obsidian-tasks/types/Status';
+import { Occurrence, Priority, Recurrence, Task, addDependencyToParent, ensureTaskHasId, generateUniqueId, removeDependency } from '@/vendor/obsidian-tasks/types/Task';
 
 type OnCompletion = any; // Stub type
 
@@ -159,7 +159,7 @@ export class EditableTask {
     public parseAndValidateRecurrence() {
         // NEW_TASK_FIELD_EDIT_REQUIRED
         if (!this.recurrenceRule) {
-            return { parsedRecurrence: '<i>not recurring</>', isRecurrenceValid: true };
+            return { parsedRecurrence: '<i>not recurring</i>', isRecurrenceValid: true };
         }
 
         const recurrenceFromText = Recurrence.fromText({

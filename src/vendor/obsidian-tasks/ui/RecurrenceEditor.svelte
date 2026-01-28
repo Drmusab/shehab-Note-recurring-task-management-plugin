@@ -1,7 +1,7 @@
 <script lang="ts">
-    import { TASK_FORMATS } from '../types/Settings';
-    import type { EditableTask } from './EditableTask';
-    import { labelContentWithAccessKey } from './EditTaskHelpers';
+    import { TASK_FORMATS } from '@/vendor/obsidian-tasks/types/Settings';
+    import type { EditableTask } from '@/vendor/obsidian-tasks/ui/EditableTask';
+    import { labelContentWithAccessKey } from '@/vendor/obsidian-tasks/ui/EditTaskHelpers';
 
     export let editableTask: EditableTask;
     export let isRecurrenceValid: boolean;

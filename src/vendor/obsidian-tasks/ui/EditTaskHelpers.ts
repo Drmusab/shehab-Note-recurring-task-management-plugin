@@ -1,4 +1,4 @@
-import { capitalizeFirstLetter } from '../types/Stubs';
+import { capitalizeFirstLetter } from '@/vendor/obsidian-tasks/shims/ObsidianShim';
 
 /**
  * Returns contents for a `<label>` HTML element.

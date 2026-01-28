@@ -1,4 +1,4 @@
-import type { Status } from './Status';
+import type { Status } from '@/vendor/obsidian-tasks/types/Status';
 
 // Minimal Task interface for Obsidian-Tasks UI compatibility
 export interface Task {
