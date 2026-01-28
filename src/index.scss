@@ -6,6 +6,9 @@
 @import './vendor/obsidian-tasks/ui/EditTask.scss';
 @import './vendor/obsidian-tasks/ui/Dependency.scss';
 
+/* Import UI component styles */
+@import './ui/EditTaskModal.scss';
+
 /* Import Dashboard styles */
 @import './dashboard/styles/dashboard.scss';
 
